@@ -1,0 +1,45 @@
+{
+  "topics": [
+    {
+      "topicName": "notifications.operational.events",
+      "description": "Operational events for infrastructure, services, and health."
+    },
+    {
+      "topicName": "notifications.routing.events",
+      "description": "Updates for routing, queues, and conversation changes."
+    },
+    {
+      "topicName": "notifications.user.events",
+      "description": "Notifications focused on user lifecycle events."
+    },
+    {
+      "topicName": "notifications.administration.events",
+      "description": "Audit and administration notifications such as org changes."
+    },
+    {
+      "topicName": "notifications.data.actions",
+      "description": "Data action invocation events."
+    },
+    {
+      "topicName": "notifications.presence",
+      "description": "Presence / device state events for agents."
+    },
+    {
+      "topicName": "notifications.calling.events",
+      "description": "Calling-related updates (queued calls, call transfers, etc.)."
+    },
+    {
+      "topicName": "notifications.conversations.events",
+      "description": "Interactive conversation updates, including messages."
+    },
+    {
+      "topicName": "notifications.analytics.events",
+      "description": "Analytics summaries emitted by Genesys Cloud."
+    },
+    {
+      "topicName": "notifications.voice.events",
+      "description": "Voice-specific streaming updates (MOS, bridging, hold)."
+    }
+  ],
+  "generatedUtc": "2026-01-05T00:00:00Z"
+}

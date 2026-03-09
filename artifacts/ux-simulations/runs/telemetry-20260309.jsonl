@@ -1,0 +1,11 @@
+﻿{"ts":"2026-03-09T13:59:27.6049543-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"time_to_interactive","props":{"route":"home","ready":true}}
+{"ts":"2026-03-09T13:59:28.1063421-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-03-09 13:59:28"}}
+{"ts":"2026-03-09T13:59:31.0353706-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-03-09 13:59:31"}}
+{"ts":"2026-03-09T13:59:31.1318752-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Response","ts":"2026-03-09T13:59:31.1317724-04:00"}}
+{"ts":"2026-03-09T13:59:39.1991125-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Conversation Report","ts":"2026-03-09T13:59:39.1990169-04:00"}}
+{"ts":"2026-03-09T13:59:40.3805116-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Ops Insights","ts":"2026-03-09T13:59:40.3804038-04:00"}}
+{"ts":"2026-03-09T13:59:41.5410859-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Live Subscriptions","ts":"2026-03-09T13:59:41.5409936-04:00"}}
+{"ts":"2026-03-09T13:59:44.3406968-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Ops Insights","ts":"2026-03-09T13:59:44.3406021-04:00"}}
+{"ts":"2026-03-09T13:59:52.7769229-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Operational Events","ts":"2026-03-09T13:59:52.7768297-04:00"}}
+{"ts":"2026-03-09T14:00:00.1426296-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Conversation Report","ts":"2026-03-09T14:00:00.1425340-04:00"}}
+{"ts":"2026-03-09T14:00:04.9965975-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Job Watch","ts":"2026-03-09T14:00:04.9965006-04:00"}}

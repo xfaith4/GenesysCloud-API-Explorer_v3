@@ -1,0 +1,11 @@
+﻿{"ts":"2026-02-14T14:22:17.1265306-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"time_to_interactive","props":{"route":"home","ready":true}}
+{"ts":"2026-02-14T14:22:17.7645702-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"log","props":{"ts":"2026-02-14 14:22:17","message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json."}}
+{"ts":"2026-02-14T14:22:21.0924853-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"log","props":{"ts":"2026-02-14 14:22:21","message":"Loaded 85 groups from the API catalog."}}
+{"ts":"2026-02-14T14:22:21.1500014-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Response","ts":"2026-02-14T14:22:21.1498795-05:00"}}
+{"ts":"2026-02-14T15:25:50.6089153-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Live Subscriptions","ts":"2026-02-14T15:25:50.6087833-05:00"}}
+{"ts":"2026-02-14T15:25:59.9159293-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Live Subscriptions","ts":"2026-02-14T15:25:59.9158293-05:00"}}
+{"ts":"2026-02-14T15:26:10.4472754-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Operational Events","ts":"2026-02-14T15:26:10.4471627-05:00"}}
+{"ts":"2026-02-14T15:26:29.6388509-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Operational Events","ts":"2026-02-14T15:26:29.6387526-05:00"}}
+{"ts":"2026-02-14T15:26:40.1668726-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Audit Investigator","ts":"2026-02-14T15:26:40.1667572-05:00"}}
+{"ts":"2026-02-14T15:26:57.6696890-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Ops Insights","ts":"2026-02-14T15:26:57.6695808-05:00"}}
+{"ts":"2026-02-14T15:27:35.6120780-05:00","session":"1d8feae4-4265-44cf-af67-02ac8f43f4ba","event":"page_view","props":{"route":"Ops Dashboard","ts":"2026-02-14T15:27:35.6119567-05:00"}}

@@ -1,0 +1,87 @@
+{
+  "id": "compositions.inspect-conversations.v1",
+  "name": "Inspect Conversations",
+  "version": "1.0.0",
+  "description": "Rebuilds the conversation story by querying conversation details, analytics, and enriched metadata in sequence.",
+  "inputs": [
+    {
+      "name": "conversationId",
+      "type": "string",
+      "required": true,
+      "description": "Unique Genesys conversation identifier."
+    },
+    {
+      "name": "interval",
+      "type": "interval",
+      "required": false,
+      "description": "Analytics interval window (ISO 8601 range)."
+    }
+  ],
+  "steps": [
+    {
+      "id": "conversationDetails",
+      "description": "Core conversation container with participants, queues, and timings.",
+      "endpoint": "/api/v2/conversations/{conversationId}",
+      "method": "GET"
+    },
+    {
+      "id": "analyticsDetails",
+      "description": "Analytics segments, MOS scores, and error indicators.",
+      "endpoint": "/api/v2/analytics/conversations/{conversationId}/details",
+      "method": "GET",
+      "dependsOn": [
+        "conversationDetails"
+      ],
+      "pagination": {
+        "strategy": "cursor",
+        "cursorField": "cursor"
+      }
+    },
+    {
+      "id": "sentiments",
+      "description": "Sentiment timeline data when available.",
+      "endpoint": "/api/v2/speechandtextanalytics/conversations/{conversationId}/sentiments",
+      "method": "GET",
+      "dependsOn": [
+        "analyticsDetails"
+      ]
+    },
+    {
+      "id": "recordingMetadata",
+      "description": "Recording references for each participant session.",
+      "endpoint": "/api/v2/conversations/{conversationId}/recordingmetadata",
+      "method": "GET",
+      "dependsOn": [
+        "conversationDetails"
+      ]
+    }
+  ],
+  "joinKeys": [
+    "conversationId",
+    "participantId",
+    "segmentId"
+  ],
+  "normalization": {
+    "timestamp": [
+      "analyticsDetails.conversationStart",
+      "conversationDetails.participants[].startTime",
+      "analyticsDetails.participants[].sessions[].segments[].segmentEnd"
+    ],
+    "eventType": [
+      "analyticsDetails.participants[].sessions[].segments[].segmentType",
+      "analyticsDetails.participants[].sessions[].segments[].segmentEnd",
+      "conversationDetails.participants[].state"
+    ],
+    "entityId": [
+      "conversationDetails.participants[].id",
+      "analyticsDetails.participants[].participantId"
+    ],
+    "severity": [
+      "analyticsDetails.participants[].errorCode"
+    ]
+  },
+  "outputs": {
+    "summary": "Normalized timeline grouped by participant, MOS, and disconnects.",
+    "raw": "All endpoint JSON combined, ready for exports."
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "id": "compositions.operational-events-summary.v1",
+  "name": "Operational Events Summary",
+  "version": "1.0.0",
+  "description": "Combines the operational event catalog with live ingest (notifications) or EventBridge imports for quick prioritization.",
+  "inputs": [
+    {
+      "name": "eventDefinitionIds",
+      "type": "string",
+      "required": true,
+      "description": "Comma- or newline-separated event definition identifiers to monitor."
+    },
+    {
+      "name": "startTime",
+      "type": "datetime",
+      "description": "UTC start of the ingest window."
+    },
+    {
+      "name": "endTime",
+      "type": "datetime",
+      "description": "UTC end of the ingest window."
+    }
+  ],
+  "steps": [
+    {
+      "id": "catalogLookup",
+      "description": "Fetch catalog metadata for the requested event IDs.",
+      "endpoint": "/api/v2/analytics/events/definitions",
+      "method": "GET",
+      "queryParameters": {
+        "ids": "{inputs.eventDefinitionIds}"
+      }
+    },
+    {
+      "id": "auditStream",
+      "description": "Query operational events via the audit pipeline or parse imported EventBridge payloads.",
+      "endpoint": "/api/v2/audits/query",
+      "method": "POST",
+      "dependsOn": [
+        "catalogLookup"
+      ],
+      "bodyTemplate": {
+        "interval": "{inputs.startTime}/{inputs.endTime}",
+        "eventDefinitions": "{inputs.eventDefinitionIds}"
+      },
+      "pagination": {
+        "strategy": "cursor"
+      }
+    }
+  ],
+  "joinKeys": [
+    "eventDefinitionId",
+    "serviceName",
+    "entityId"
+  ],
+  "normalization": {
+    "timestamp": [
+      "timestamp",
+      "eventTime"
+    ],
+    "eventType": [
+      "eventDefinitionId",
+      "eventType"
+    ],
+    "entityId": [
+      "entityId",
+      "participantId"
+    ],
+    "severity": [
+      "severity",
+      "level"
+    ]
+  },
+  "outputs": {
+    "summary": "Totals by event definition + severity + service + frequency histogram.",
+    "raw": "JSONL of each operational event received."
+  }
+}

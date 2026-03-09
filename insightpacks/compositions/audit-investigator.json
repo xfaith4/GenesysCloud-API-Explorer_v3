@@ -1,0 +1,89 @@
+{
+  "id": "compositions.audit-investigator.v1",
+  "name": "Audit Investigator",
+  "version": "1.0.0",
+  "description": "Drills into historical audit trail records to reconstruct configuration changes, approvals, and admin actions.",
+  "inputs": [
+    {
+      "name": "startTime",
+      "type": "datetime",
+      "required": true,
+      "description": "Start of the audit window (UTC)."
+    },
+    {
+      "name": "endTime",
+      "type": "datetime",
+      "required": true,
+      "description": "End of the audit window (UTC)."
+    },
+    {
+      "name": "service",
+      "type": "string",
+      "description": "Optional Genesys Cloud service name (e.g., routing, analytics)."
+    },
+    {
+      "name": "entityId",
+      "type": "entityId",
+      "description": "Optional entity identifier (queue, flow, user) to filter the audit records."
+    },
+    {
+      "name": "userId",
+      "type": "entityId",
+      "description": "Optional user identifier that initiated the actions."
+    }
+  ],
+  "steps": [
+    {
+      "id": "submitAuditQuery",
+      "description": "Submit an audit query with the specified filters.",
+      "endpoint": "/api/v2/audits/query",
+      "method": "POST",
+      "bodyTemplate": {
+        "interval": "{inputs.startTime}/{inputs.endTime}",
+        "serviceName": "{inputs.service}",
+        "userId": "{inputs.userId}",
+        "entityId": "{inputs.entityId}"
+      }
+    },
+    {
+      "id": "fetchAuditResults",
+      "description": "Page through the resulting audit transaction until completion.",
+      "endpoint": "/api/v2/audits/query/{submitAuditQuery.requestId}",
+      "method": "GET",
+      "dependsOn": [
+        "submitAuditQuery"
+      ],
+      "pagination": {
+        "strategy": "cursor",
+        "cursorField": "cursor"
+      }
+    }
+  ],
+  "joinKeys": [
+    "transactionId",
+    "entityId",
+    "userId"
+  ],
+  "normalization": {
+    "timestamp": [
+      "activityDate",
+      "timestamp"
+    ],
+    "eventType": [
+      "action",
+      "entityType"
+    ],
+    "entityId": [
+      "entityId",
+      "targetId"
+    ],
+    "severity": [
+      "severityLevel",
+      "code"
+    ]
+  },
+  "outputs": {
+    "summary": "Chronological timeline with change summaries and actors.",
+    "raw": "Raw audit events for JSONL export."
+  }
+}

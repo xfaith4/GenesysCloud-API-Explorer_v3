@@ -1,0 +1,16 @@
+﻿{"ts":"2026-02-10T06:27:56.7488342-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"time_to_interactive","props":{"ready":true,"route":"home"}}
+{"ts":"2026-02-10T06:27:57.3933539-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-02-10 06:27:57"}}
+{"ts":"2026-02-10T06:28:02.4493601-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-02-10 06:28:02"}}
+{"ts":"2026-02-10T06:28:02.5003161-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:02.5001570-05:00","route":"Response"}}
+{"ts":"2026-02-10T06:28:17.0235907-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:17.0234934-05:00","route":"Ops Insights"}}
+{"ts":"2026-02-10T06:28:23.2571955-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:23.2570992-05:00","route":"Live Subscriptions"}}
+{"ts":"2026-02-10T06:28:28.2401936-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:28.2401001-05:00","route":"Job Watch"}}
+{"ts":"2026-02-10T06:28:30.4668608-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:30.4667655-05:00","route":"Request History"}}
+{"ts":"2026-02-10T06:28:31.5989128-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:31.5988130-05:00","route":"Conversation Report"}}
+{"ts":"2026-02-10T06:28:33.9070818-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:33.9069833-05:00","route":"Templates"}}
+{"ts":"2026-02-10T06:28:55.3507744-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:28:55.3506719-05:00","route":"Templates"}}
+{"ts":"2026-02-10T06:29:02.0840623-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:29:02.0839659-05:00","route":"Templates"}}
+{"ts":"2026-02-10T06:29:12.9288072-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:29:12.9287112-05:00","route":"Forensic Timeline"}}
+{"ts":"2026-02-10T06:29:17.1178760-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:29:17.1177796-05:00","route":"Schema"}}
+{"ts":"2026-02-10T06:29:29.5207335-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:29:29.5206368-05:00","route":"Forensic Timeline"}}
+{"ts":"2026-02-10T06:29:30.8087255-05:00","session":"6ab56e45-922f-4d77-8e72-bf653132e302","event":"page_view","props":{"ts":"2026-02-10T06:29:30.8086346-05:00","route":"Transparency Log"}}

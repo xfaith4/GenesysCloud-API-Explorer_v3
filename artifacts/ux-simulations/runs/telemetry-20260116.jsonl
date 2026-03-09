@@ -1,0 +1,4 @@
+﻿{"ts":"2026-01-16T18:09:44.7791416-05:00","session":"c8146d0e-8229-4a9c-93bf-459a74ace4b2","event":"time_to_interactive","props":{"ready":true,"route":"home"}}
+{"ts":"2026-01-16T18:09:45.4314417-05:00","session":"c8146d0e-8229-4a9c-93bf-459a74ace4b2","event":"log","props":{"ts":"2026-01-16 18:09:45","message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json."}}
+{"ts":"2026-01-16T18:09:48.3859402-05:00","session":"c8146d0e-8229-4a9c-93bf-459a74ace4b2","event":"log","props":{"ts":"2026-01-16 18:09:48","message":"Loaded 85 groups from the API catalog."}}
+{"ts":"2026-01-16T18:09:48.4392368-05:00","session":"c8146d0e-8229-4a9c-93bf-459a74ace4b2","event":"page_view","props":{"ts":"2026-01-16T18:09:48.4391277-05:00","route":"Response"}}

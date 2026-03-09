@@ -1,0 +1,16 @@
+# Insight briefing exports (runtime artifacts)
+InsightBriefings/*
+!InsightBriefings/README.md
+insights/briefings/*
+!insights/briefings/README.md
+
+# Temporary exports / reports
+reports/
+*.snapshot.json
+
+# Python caches
+app/__pycache__/
+# Pester / test artifacts
+testResults*.xml
+TestResults*.xml
+artifacts/test-results/

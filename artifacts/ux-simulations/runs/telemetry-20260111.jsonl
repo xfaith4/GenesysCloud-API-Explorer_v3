@@ -1,0 +1,11 @@
+﻿{"ts":"2026-01-11T21:20:09.3628359-05:00","session":"f1270fc7-9e82-4159-ab8a-152c4e66ea1f","event":"time_to_interactive","props":{"route":"home","ready":true}}
+{"ts":"2026-01-11T21:20:10.0891684-05:00","session":"f1270fc7-9e82-4159-ab8a-152c4e66ea1f","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-01-11 21:20:10"}}
+{"ts":"2026-01-11T21:20:14.4271425-05:00","session":"f1270fc7-9e82-4159-ab8a-152c4e66ea1f","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-01-11 21:20:14"}}
+{"ts":"2026-01-11T21:20:14.4779543-05:00","session":"f1270fc7-9e82-4159-ab8a-152c4e66ea1f","event":"page_view","props":{"route":"Response","ts":"2026-01-11T21:20:14.4778450-05:00"}}
+{"ts":"2026-01-11T22:07:36.6666543-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"time_to_interactive","props":{"ready":true,"route":"home"}}
+{"ts":"2026-01-11T22:07:37.3034121-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-01-11 22:07:37"}}
+{"ts":"2026-01-11T22:07:40.0635118-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-01-11 22:07:40"}}
+{"ts":"2026-01-11T22:07:40.0976415-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"page_view","props":{"ts":"2026-01-11T22:07:40.0976415-05:00","route":"Response"}}
+{"ts":"2026-01-11T22:39:19.8947374-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"page_view","props":{"ts":"2026-01-11T22:39:19.8947374-05:00","route":"Schema"}}
+{"ts":"2026-01-11T22:39:33.1476266-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"page_view","props":{"ts":"2026-01-11T22:39:33.1476266-05:00","route":"Ops Dashboard"}}
+{"ts":"2026-01-11T22:39:35.7043093-05:00","session":"8a06fd8f-7e04-47bb-9792-309937a8cba0","event":"page_view","props":{"ts":"2026-01-11T22:39:35.7043093-05:00","route":"Queue Wait Coverage"}}
