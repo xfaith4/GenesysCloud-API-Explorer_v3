@@ -401,8 +401,32 @@ function Invoke-GCInsightPack {
                         if ($createBody) { $createSplat.Body = $createBody }
 
                         $job = Invoke-GCRequest @createSplat
-                        $jobId = $job.id
-                        if ([string]::IsNullOrWhiteSpace([string]$jobId)) { throw "JobPoll step '$($step.id)' did not receive a job id." }
+
+                        # Genesys async endpoints are not consistent: some return "id", others "jobId".
+                        $jobId = $null
+                        if ($job) {
+                            if (($job.PSObject.Properties.Name -contains 'id') -and $job.id) {
+                                $jobId = [string]$job.id
+                            }
+                            elseif (($job.PSObject.Properties.Name -contains 'jobId') -and $job.jobId) {
+                                $jobId = [string]$job.jobId
+                            }
+                            elseif (($job.PSObject.Properties.Name -contains 'jobID') -and $job.jobID) {
+                                $jobId = [string]$job.jobID
+                            }
+                            elseif (($job.PSObject.Properties.Name -contains 'job_id') -and $job.job_id) {
+                                $jobId = [string]$job.job_id
+                            }
+                        }
+
+                        if ([string]::IsNullOrWhiteSpace([string]$jobId)) {
+                            $jobPreview = ''
+                            try { $jobPreview = ($job | ConvertTo-Json -Depth 12 -Compress) } catch { }
+                            if (-not [string]::IsNullOrWhiteSpace($jobPreview)) {
+                                throw "JobPoll step '$($step.id)' did not receive a job id. Create response: $jobPreview"
+                            }
+                            throw "JobPoll step '$($step.id)' did not receive a job id."
+                        }
 
                             $statusPath = Resolve-GCInsightTemplateString -Template $statusPathTemplate -Parameters (@{ jobId = $jobId })
                             $deadline = (Get-Date).AddSeconds($maxWaitSec)
