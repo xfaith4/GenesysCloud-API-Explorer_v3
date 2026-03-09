@@ -5387,7 +5387,8 @@ function Save-FavoritesToDisk {
         $Favorites | ConvertTo-Json -Depth 5 | Set-Content -Path $Path -Encoding utf8
     }
     catch {
-        Write-Warning "Unable to save favorites: $($_.Exception.Message)"
+        Write-Verbose "Unable to save favorites: $($_.Exception.Message)"
+        Write-TraceLog "Unable to save favorites: $($_.Exception.Message)"
     }
 }
 
@@ -5428,7 +5429,8 @@ function Load-TemplatesFromDisk {
         return $content | ConvertFrom-Json -ErrorAction Stop
     }
     catch {
-        Write-Warning "Unable to load templates: $($_.Exception.Message)"
+        Write-Verbose "Unable to load templates: $($_.Exception.Message)"
+        Write-TraceLog "Unable to load templates: $($_.Exception.Message)"
         return @()
     }
 }
@@ -5444,7 +5446,8 @@ function Save-TemplatesToDisk {
         $normalized | ConvertTo-Json -Depth 5 | Set-Content -Path $Path -Encoding utf8
     }
     catch {
-        Write-Warning "Unable to save templates: $($_.Exception.Message)"
+        Write-Verbose "Unable to save templates: $($_.Exception.Message)"
+        Write-TraceLog "Unable to save templates: $($_.Exception.Message)"
     }
 }
 

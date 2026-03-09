@@ -9,3 +9,11 @@
 {"ts":"2026-03-09T13:59:52.7769229-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Operational Events","ts":"2026-03-09T13:59:52.7768297-04:00"}}
 {"ts":"2026-03-09T14:00:00.1426296-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Conversation Report","ts":"2026-03-09T14:00:00.1425340-04:00"}}
 {"ts":"2026-03-09T14:00:04.9965975-04:00","session":"7819c333-c321-4d26-834b-4f08f3dff061","event":"page_view","props":{"route":"Job Watch","ts":"2026-03-09T14:00:04.9965006-04:00"}}
+{"ts":"2026-03-09T15:11:53.3304970-04:00","session":"d6551137-f40e-4575-8b88-b096e3a03edd","event":"time_to_interactive","props":{"ready":true,"route":"home"}}
+{"ts":"2026-03-09T15:11:53.9599920-04:00","session":"d6551137-f40e-4575-8b88-b096e3a03edd","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-03-09 15:11:53"}}
+{"ts":"2026-03-09T15:12:00.0394932-04:00","session":"d6551137-f40e-4575-8b88-b096e3a03edd","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-03-09 15:12:00"}}
+{"ts":"2026-03-09T15:12:00.1221170-04:00","session":"d6551137-f40e-4575-8b88-b096e3a03edd","event":"page_view","props":{"ts":"2026-03-09T15:12:00.1221170-04:00","route":"Response"}}
+{"ts":"2026-03-09T15:14:52.2086746-04:00","session":"b31b7d35-7c17-4f00-9951-3d846d7a00bc","event":"time_to_interactive","props":{"ready":true,"route":"home"}}
+{"ts":"2026-03-09T15:14:52.8049951-04:00","session":"b31b7d35-7c17-4f00-9951-3d846d7a00bc","event":"log","props":{"message":"Loaded 2 favorites from C:\\Users\\benfu\\GenesysApiExplorerFavorites.json.","ts":"2026-03-09 15:14:52"}}
+{"ts":"2026-03-09T15:14:57.7210941-04:00","session":"b31b7d35-7c17-4f00-9951-3d846d7a00bc","event":"log","props":{"message":"Loaded 85 groups from the API catalog.","ts":"2026-03-09 15:14:57"}}
+{"ts":"2026-03-09T15:14:57.7976545-04:00","session":"b31b7d35-7c17-4f00-9951-3d846d7a00bc","event":"page_view","props":{"ts":"2026-03-09T15:14:57.7966474-04:00","route":"Response"}}

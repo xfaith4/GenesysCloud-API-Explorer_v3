@@ -1076,7 +1076,7 @@ function Export-InsightBriefingWorkflow {
 }
 
 foreach ($group in ($script:GroupMap.Keys | Sort-Object)) {
-    $groupCombo.Items.Add($group)
+    $groupCombo.Items.Add($group) | Out-Null
 }
 
 $statusText.Text = "Select a group to begin."
