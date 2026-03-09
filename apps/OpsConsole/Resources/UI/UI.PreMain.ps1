@@ -1106,10 +1106,12 @@ function Show-LoginWindow {
 
           <TextBlock Text="Client ID (or env var name)" FontWeight="Bold" Margin="0 0 0 5"/>
           <TextBox Name="ClientClientIdInput" Height="28" Margin="0 0 0 6" ToolTip="Paste the client ID directly"/>
+          <TextBlock Text="Optional: Client ID environment variable name" FontSize="10" Foreground="Gray" Margin="0 0 0 3"/>
           <TextBox Name="ClientClientIdEnvInput" Height="24" Margin="0 0 0 10" ToolTip="Optional: environment variable containing the client ID"/>
 
           <TextBlock Text="Client Secret (or env var name)" FontWeight="Bold" Margin="0 0 0 5"/>
           <PasswordBox Name="ClientSecretInput" Height="28" Margin="0 0 0 6" ToolTip="Paste the client secret directly"/>
+          <TextBlock Text="Optional: Client Secret environment variable name" FontSize="10" Foreground="Gray" Margin="0 0 0 3"/>
           <TextBox Name="ClientSecretEnvInput" Height="24" Margin="0 0 0 15" ToolTip="Optional: environment variable containing the client secret"/>
 
           <Button Name="ClientLoginButton" Content="Get Token" Height="32" Margin="0 10 0 0"/>
