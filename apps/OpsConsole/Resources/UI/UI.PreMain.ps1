@@ -763,11 +763,60 @@ function ConvertTo-FormEncodedString {
     )
 
     $pairs = foreach ($entry in $Values.GetEnumerator()) {
+        $key = [System.Uri]::EscapeDataString([string]$entry.Key)
         $value = if ($null -eq $entry.Value) { '' } else { $entry.Value }
-        "$($entry.Key)=$([System.Uri]::EscapeDataString($value))"
+        "$key=$([System.Uri]::EscapeDataString([string]$value))"
     }
 
     return ($pairs -join '&')
+}
+
+function Invoke-OAuthTokenRequest {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Uri,
+
+        [Parameter(Mandatory)]
+        [hashtable]$Body,
+
+        [Parameter()]
+        [hashtable]$Headers = @{}
+    )
+
+    $requestHeaders = @{}
+    foreach ($k in $Headers.Keys) {
+        $requestHeaders[$k] = $Headers[$k]
+    }
+    if (-not $requestHeaders.ContainsKey('Content-Type')) {
+        $requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded'
+    }
+
+    $formBody = ConvertTo-FormEncodedString -Values $Body
+
+    try {
+        return Invoke-RestMethod -Method Post -Uri $Uri -Headers $requestHeaders -Body $formBody -ErrorAction Stop
+    }
+    catch {
+        $details = $null
+        try {
+            if ($_.Exception.Response) {
+                $stream = $_.Exception.Response.GetResponseStream()
+                if ($stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $details = $reader.ReadToEnd()
+                    $reader.Close()
+                }
+            }
+        }
+        catch { }
+
+        if (-not [string]::IsNullOrWhiteSpace($details)) {
+            throw "OAuth token request failed. URI: $Uri`nDetails: $details"
+        }
+
+        throw
+    }
 }
 
 function Get-ExplorerSettingsPath {
@@ -1224,12 +1273,11 @@ function Show-LoginWindow {
 
                 $loginWindow.Cursor = [System.Windows.Input.Cursors]::Wait
 
-                $formBody = ConvertTo-FormEncodedString -Values $body
                 $headers = @{
                     Authorization  = "Basic $authHeader"
                     'Content-Type' = 'application/x-www-form-urlencoded'
                 }
-                $response = Invoke-GCRequest -Method Post -Uri "https://login.$regionText/oauth/token" -Headers $headers -Body $formBody
+                $response = Invoke-OAuthTokenRequest -Uri "https://login.$regionText/oauth/token" -Body $body -Headers $headers
 
                 if ($response.access_token) {
                     $script:LoginResult = $response.access_token
@@ -1295,64 +1343,109 @@ function Show-LoginWindow {
             $challengeBytes = $sha256.ComputeHash([Text.Encoding]::ASCII.GetBytes($verifier))
             $challenge = [Convert]::ToBase64String($challengeBytes).Replace('+', '-').Replace('/', '_').Replace('=', '')
 
-            $authUrl = "https://login.$regionText/oauth/authorize?client_id=$clientId&response_type=code&redirect_uri=$redirectUri&code_challenge=$challenge&code_challenge_method=S256"
+            $redirectUriObj = $null
+            try {
+                $redirectUriObj = [System.Uri]$redirectUri
+            }
+            catch {
+                [System.Windows.MessageBox]::Show("Invalid Redirect URI: $redirectUri", "Login Error", "OK", "Error")
+                return
+            }
 
-            # Create a browser window
-            $browserXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Genesys Cloud Authorization" Height="600" Width="500" WindowStartupLocation="CenterScreen">
-  <WebBrowser Name="AuthBrowser"/>
-</Window>
-"@
-            $browserWindow = [System.Windows.Markup.XamlReader]::Parse($browserXaml)
-            $browser = $browserWindow.FindName("AuthBrowser")
+            if (-not $redirectUriObj.IsAbsoluteUri -or $redirectUriObj.Scheme -ne 'http' -or -not $redirectUriObj.IsLoopback) {
+                [System.Windows.MessageBox]::Show("Redirect URI must be an absolute loopback HTTP URI (example: http://localhost:8080).", "Login Error", "OK", "Error")
+                return
+            }
 
-                $browser.Add_Navigated({
-                    param($navSender, $navEventArgs)
-                    $url = $navEventArgs.Uri.AbsoluteUri
+            $callbackPath = if ([string]::IsNullOrWhiteSpace($redirectUriObj.AbsolutePath)) { "/" } else { $redirectUriObj.AbsolutePath }
+            if (-not $callbackPath.EndsWith('/')) { $callbackPath = "$callbackPath/" }
+            $listenerPrefix = "http://$($redirectUriObj.Host):$($redirectUriObj.Port)$callbackPath"
 
-                    # Check for Authorization Code redirect
-                    if ($url -match "[?&]code=([^&]+)") {
-                        $authCode = $Matches[1]
-                        $browserWindow.Close() # Close immediately to prevent user confusion
+            $stateBytes = New-Object byte[] 24
+            $rng.GetBytes($stateBytes)
+            $state = [Convert]::ToBase64String($stateBytes).Replace('+', '-').Replace('/', '_').Replace('=', '')
 
-                        # 2. Exchange Code for Token
-                        try {
-                            $loginWindow.Cursor = [System.Windows.Input.Cursors]::Wait
+            $authUrl = "https://login.$regionText/oauth/authorize?client_id=$([System.Uri]::EscapeDataString($clientId))&response_type=code&redirect_uri=$([System.Uri]::EscapeDataString($redirectUri))&code_challenge=$([System.Uri]::EscapeDataString($challenge))&code_challenge_method=S256&state=$([System.Uri]::EscapeDataString($state))"
 
-                            $tokenBody = @{
-                                grant_type    = "authorization_code"
-                                client_id     = $clientId
-                                code          = $authCode
-                                redirect_uri  = $redirectUri
-                                code_verifier = $verifier
-                            }
+            $listener = $null
+            try {
+                $listener = New-Object System.Net.HttpListener
+                $listener.Prefixes.Add($listenerPrefix)
+                $listener.Start()
 
-                            $formBody = ConvertTo-FormEncodedString -Values $tokenBody
-                            $headers = @{
-                                'Content-Type' = 'application/x-www-form-urlencoded'
-                            }
+                Start-Process -FilePath $authUrl
+                $loginWindow.Cursor = [System.Windows.Input.Cursors]::Wait
 
-                            $response = Invoke-GCRequest -Method Post -Uri "https://login.$regionText/oauth/token" -Headers $headers -Body $formBody
+                $contextTask = $listener.GetContextAsync()
+                if (-not $contextTask.Wait(180000)) {
+                    throw "Timed out waiting for authorization response. Complete login in browser within 3 minutes."
+                }
 
-                            if ($response.access_token) {
-                                $script:LoginResult = $response.access_token
-                                $script:LastLoginOAuthType = 'User PKCE'
-                                $script:LastLoginRegion = $regionText
-                                $loginWindow.Close()
-                            }
-                        }
-                        catch {
-                            [System.Windows.MessageBox]::Show("Token exchange failed: $($_.Exception.Message)", "Login Error", "OK", "Error")
-                        }
-                        finally {
-                            $loginWindow.Cursor = [System.Windows.Input.Cursors]::Arrow
-                        }
-                    }
-                })
+                $context = $contextTask.Result
+                $requestUrl = $context.Request.Url
+                $query = @{}
+                foreach ($part in ($requestUrl.Query.TrimStart('?') -split '&')) {
+                    if (-not $part) { continue }
+                    $segments = $part -split '=', 2
+                    $key = [System.Net.WebUtility]::UrlDecode($segments[0])
+                    $val = if ($segments.Count -gt 1) { [System.Net.WebUtility]::UrlDecode($segments[1]) } else { '' }
+                    $query[$key] = $val
+                }
 
-            $browser.Navigate($authUrl)
-            $browserWindow.ShowDialog() | Out-Null
+                $responseHtml = "<html><body style='font-family:Segoe UI,Arial;padding:20px;'><h3>Authorization complete</h3><p>You can close this tab and return to Genesys Cloud API Explorer.</p></body></html>"
+                if ($query.error) {
+                    $responseHtml = "<html><body style='font-family:Segoe UI,Arial;padding:20px;'><h3>Authorization failed</h3><p>$([System.Net.WebUtility]::HtmlEncode([string]$query.error_description))</p></body></html>"
+                }
+
+                $respBytes = [System.Text.Encoding]::UTF8.GetBytes($responseHtml)
+                $context.Response.StatusCode = 200
+                $context.Response.ContentType = 'text/html; charset=utf-8'
+                $context.Response.ContentLength64 = $respBytes.Length
+                $context.Response.OutputStream.Write($respBytes, 0, $respBytes.Length)
+                $context.Response.OutputStream.Close()
+                $context.Response.Close()
+
+                if ($query.error) {
+                    throw "Authorization error: $($query.error). $($query.error_description)"
+                }
+                if (-not $query.state -or $query.state -ne $state) {
+                    throw "Authorization state validation failed."
+                }
+                if (-not $query.code) {
+                    throw "Authorization response did not include a code."
+                }
+
+                $authCode = $query.code
+                $tokenBody = @{
+                    grant_type    = "authorization_code"
+                    client_id     = $clientId
+                    code          = $authCode
+                    redirect_uri  = $redirectUri
+                    code_verifier = $verifier
+                }
+                $headers = @{
+                    'Content-Type' = 'application/x-www-form-urlencoded'
+                }
+                $response = Invoke-OAuthTokenRequest -Uri "https://login.$regionText/oauth/token" -Body $tokenBody -Headers $headers
+
+                if ($response.access_token) {
+                    $script:LoginResult = $response.access_token
+                    $script:LastLoginOAuthType = 'User PKCE'
+                    $script:LastLoginRegion = $regionText
+                    $loginWindow.Close()
+                }
+            }
+            catch {
+                [System.Windows.MessageBox]::Show("Token exchange failed: $($_.Exception.Message)", "Login Error", "OK", "Error")
+            }
+            finally {
+                try {
+                    if ($listener -and $listener.IsListening) { $listener.Stop() }
+                    if ($listener) { $listener.Close() }
+                }
+                catch { }
+                $loginWindow.Cursor = [System.Windows.Input.Cursors]::Arrow
+            }
         })
 
     $loginWindow.ShowDialog() | Out-Null
