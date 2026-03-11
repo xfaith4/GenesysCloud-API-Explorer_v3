@@ -69,3 +69,69 @@ Describe 'Application artifact contracts' -Tag @('Contract', 'Artifacts') {
         $openApi.paths.PSObject.Properties.Name | Should -Contain '/api/v2/analytics/conversations/details/query'
     }
 }
+
+Describe 'Audit artifact contracts' -Tag @('Contract', 'Artifacts', 'Audit') {
+    It 'audit directory exists and contains required files' {
+        $auditDir = Join-TestRepoPath -RelativePath 'docs/audit' -StartPath $PSScriptRoot
+        (Test-Path -LiteralPath $auditDir -PathType Container) | Should -BeTrue
+
+        $requiredFiles = @(
+            'docs/audit/AUDIT_REPORT.md',
+            'docs/audit/CAPABILITIES.md',
+            'docs/audit/DEFECTS.md',
+            'docs/audit/controls-and-workflows.json',
+            'docs/audit/request-ledger.json'
+        )
+        foreach ($rel in $requiredFiles) {
+            $p = Join-TestRepoPath -RelativePath $rel -StartPath $PSScriptRoot
+            (Test-Path -LiteralPath $p) | Should -BeTrue -Because "$rel must exist"
+        }
+    }
+
+    It 'controls-and-workflows.json parses and has required top-level keys' {
+        $path = Join-TestRepoPath -RelativePath 'docs/audit/controls-and-workflows.json' -StartPath $PSScriptRoot
+        $raw = Get-Content -LiteralPath $path -Raw
+        { $raw | ConvertFrom-Json | Out-Null } | Should -Not -Throw
+        $doc = $raw | ConvertFrom-Json
+
+        $doc.schemaVersion | Should -Not -BeNullOrEmpty
+        $doc.controls | Should -Not -BeNullOrEmpty
+        $doc.workflows | Should -Not -BeNullOrEmpty
+        @($doc.controls).Count | Should -BeGreaterThan 20
+        @($doc.workflows).Count | Should -BeGreaterThan 5
+    }
+
+    It 'controls-and-workflows.json control entries have required shape' {
+        $path = Join-TestRepoPath -RelativePath 'docs/audit/controls-and-workflows.json' -StartPath $PSScriptRoot
+        $doc = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+
+        foreach ($ctrl in $doc.controls) {
+            $ctrl.name | Should -Not -BeNullOrEmpty -Because "control.name must not be empty"
+            $ctrl.tab | Should -Not -BeNullOrEmpty -Because "control.tab must not be empty"
+            $ctrl.classification | Should -Not -BeNullOrEmpty -Because "control.classification must not be empty"
+        }
+    }
+
+    It 'request-ledger.json parses and has required top-level keys' {
+        $path = Join-TestRepoPath -RelativePath 'docs/audit/request-ledger.json' -StartPath $PSScriptRoot
+        $raw = Get-Content -LiteralPath $path -Raw
+        { $raw | ConvertFrom-Json | Out-Null } | Should -Not -Throw
+        $doc = $raw | ConvertFrom-Json
+
+        $doc.schemaVersion | Should -Not -BeNullOrEmpty
+        $doc.requests | Should -Not -BeNullOrEmpty
+        @($doc.requests).Count | Should -BeGreaterThan 10
+    }
+
+    It 'request-ledger.json entries have required shape' {
+        $path = Join-TestRepoPath -RelativePath 'docs/audit/request-ledger.json' -StartPath $PSScriptRoot
+        $doc = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+
+        foreach ($req in $doc.requests) {
+            $req.workflowId | Should -Not -BeNullOrEmpty -Because "request.workflowId must not be empty"
+            $req.method | Should -Not -BeNullOrEmpty -Because "request.method must not be empty"
+            $req.endpointPath | Should -Not -BeNullOrEmpty -Because "request.endpointPath must not be empty"
+            $req.sourceFunction | Should -Not -BeNullOrEmpty -Because "request.sourceFunction must not be empty"
+        }
+    }
+}

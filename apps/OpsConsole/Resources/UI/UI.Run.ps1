@@ -58,6 +58,11 @@ $conversationReportStatus = $Window.FindName("ConversationReportStatus")
 $conversationReportProgressBar = $Window.FindName("ConversationReportProgressBar")
 $conversationReportProgressText = $Window.FindName("ConversationReportProgressText")
 $conversationReportEndpointLog = $Window.FindName("ConversationReportEndpointLog")
+$cancelConversationReportButton = $Window.FindName("CancelConversationReportButton")
+$convReportErrorBanner = $Window.FindName("ConvReportErrorBanner")
+$convReportErrorText = $Window.FindName("ConvReportErrorText")
+$convReportWarningBanner = $Window.FindName("ConvReportWarningBanner")
+$convReportWarningText = $Window.FindName("ConvReportWarningText")
 $queueWaitQueueIdInput = $Window.FindName("QueueWaitQueueIdInput")
 $queueWaitIntervalInput = $Window.FindName("QueueWaitIntervalInput")
 $runQueueWaitReportButton = $Window.FindName("RunQueueWaitReportButton")
@@ -637,6 +642,35 @@ function Add-LogEntry {
     Write-UxEvent -Name "log" -Properties @{ message = $Message; ts = $timestamp }
 }
 #endregion Logging
+
+function Set-ConvReportUiState {
+    param(
+        [ValidateSet('Idle','Loading','Complete','Partial','Error')]
+        [string]$State,
+        [string]$StatusText = '',
+        [int]$ProgressPercent = 0,
+        [string]$ProgressLabel = '',
+        [string]$ErrorText = '',
+        [string]$WarningText = '',
+        [bool]$ExportEnabled = $false
+    )
+
+    if ($conversationReportStatus) { $conversationReportStatus.Text = $StatusText }
+    if ($conversationReportProgressBar) { $conversationReportProgressBar.Value = $ProgressPercent }
+    if ($conversationReportProgressText) { $conversationReportProgressText.Text = $ProgressLabel }
+
+    if ($convReportErrorBanner) { $convReportErrorBanner.Visibility = if ($ErrorText) { 'Visible' } else { 'Collapsed' } }
+    if ($convReportErrorText -and $ErrorText) { $convReportErrorText.Text = $ErrorText }
+    if ($convReportWarningBanner) { $convReportWarningBanner.Visibility = if ($WarningText) { 'Visible' } else { 'Collapsed' } }
+    if ($convReportWarningText -and $WarningText) { $convReportWarningText.Text = $WarningText }
+
+    if ($runConversationReportButton) { $runConversationReportButton.IsEnabled = ($State -ne 'Loading') }
+    if ($cancelConversationReportButton) { $cancelConversationReportButton.Visibility = if ($State -eq 'Loading') { 'Visible' } else { 'Collapsed' } }
+
+    foreach ($btn in @($inspectConversationReportButton, $exportConversationReportJsonButton, $exportConversationReportTextButton)) {
+        if ($btn) { $btn.IsEnabled = $ExportEnabled }
+    }
+}
 
 function Get-ExcelColumnName {
     param([int]$Index)
@@ -1911,123 +1945,62 @@ if ($exportJobResultsButton) {
 
 if ($runConversationReportButton) {
     $runConversationReportButton.Add_Click({
+            $correlationId = [guid]::NewGuid().ToString()
             $convId = if ($conversationReportIdInput) { $conversationReportIdInput.Text.Trim() } else { "" }
 
             if (-not $convId) {
-                if ($conversationReportStatus) {
-                    $conversationReportStatus.Text = "Please enter a conversation ID."
-                }
-                Add-LogEntry "Conversation report blocked: no conversation ID."
+                Set-ConvReportUiState -State 'Error' -StatusText "No conversation ID." -ErrorText "Please enter a conversation ID. [Correlation ID: $correlationId]"
+                Add-LogEntry "Conversation report blocked: no conversation ID. [Correlation ID: $correlationId]"
+                return
+            }
+            if ($convId -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+                Set-ConvReportUiState -State 'Error' -StatusText "Invalid ID format." -ErrorText "Conversation ID does not look like a valid UUID. [Correlation ID: $correlationId]"
+                Add-LogEntry "Conversation report blocked: invalid conversation ID format. [Correlation ID: $correlationId]"
                 return
             }
 
             $token = Get-ExplorerAccessToken
             if (-not $token) {
-                if ($conversationReportStatus) {
-                    $conversationReportStatus.Text = "Please provide an OAuth token."
-                }
-                Add-LogEntry "Conversation report blocked: no OAuth token."
+                Set-ConvReportUiState -State 'Error' -StatusText "No token." -ErrorText "Please provide an OAuth token before running a report. [Correlation ID: $correlationId]"
+                Add-LogEntry "Conversation report blocked: no OAuth token. [Correlation ID: $correlationId]"
                 return
             }
 
-            $headers = @{
-                "Content-Type"  = "application/json"
-                "Authorization" = "Bearer $token"
-            }
+            $headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer $token" }
 
-            # Reset progress UI
-            if ($conversationReportProgressBar) {
-                $conversationReportProgressBar.Value = 0
-            }
-            if ($conversationReportProgressText) {
-                $conversationReportProgressText.Text = "Initializing..."
-            }
-            if ($conversationReportEndpointLog) {
-                $conversationReportEndpointLog.Text = ""
-            }
-            if ($conversationReportStatus) {
-                $conversationReportStatus.Text = "Fetching report..."
-            }
-            Add-LogEntry "Generating conversation report for: $convId"
+            Set-ConvReportUiState -State 'Loading' -StatusText "Fetching report... [Correlation ID: $correlationId]" -ProgressPercent 0 -ProgressLabel "Initializing..." -ExportEnabled $false
+            if ($conversationReportEndpointLog) { $conversationReportEndpointLog.Text = "" }
+            Add-LogEntry "Generating conversation report for: $convId [Correlation ID: $correlationId]"
 
             try {
-                # Define progress callback to update UI
                 $progressCallback = {
                     param($PercentComplete, $Status, $EndpointName, $IsStarting, $IsSuccess, $IsOptional)
-
-                    if ($conversationReportProgressBar) {
-                        $conversationReportProgressBar.Value = $PercentComplete
-                    }
-                    if ($conversationReportProgressText) {
-                        $conversationReportProgressText.Text = $Status
-                    }
+                    if ($conversationReportProgressBar) { $conversationReportProgressBar.Value = $PercentComplete }
+                    if ($conversationReportProgressText) { $conversationReportProgressText.Text = $Status }
                     if ($conversationReportEndpointLog) {
                         $timestamp = (Get-Date).ToString("HH:mm:ss")
-                        if ($IsStarting) {
-                            $logLine = "[$timestamp] Querying: $EndpointName..."
-                        }
-                        elseif ($IsSuccess) {
-                            $logLine = "[$timestamp] $([char]0x2713) $EndpointName - Retrieved successfully"
-                        }
-                        elseif ($IsOptional) {
-                            $logLine = "[$timestamp] [WARN] $EndpointName - Optional, not available"
-                        }
-                        else {
-                            $logLine = "[$timestamp] $([char]0x2717) $EndpointName - Failed"
-                        }
+                        $logLine = if ($IsStarting) { "[$timestamp] Querying: $EndpointName..." } elseif ($IsSuccess) { "[$timestamp] $([char]0x2713) $EndpointName - Retrieved successfully" } elseif ($IsOptional) { "[$timestamp] [WARN] $EndpointName - Optional, not available" } else { "[$timestamp] $([char]0x2717) $EndpointName - Failed" }
                         $conversationReportEndpointLog.AppendText("$logLine`r`n")
                         $conversationReportEndpointLog.ScrollToEnd()
                     }
-                    # Force UI update
-                    [System.Windows.Forms.Application]::DoEvents()
                 }
 
                 $script:LastConversationReport = Get-ConversationReport -ConversationId $convId -Headers $headers -BaseUrl $ApiBaseUrl -ProgressCallback $progressCallback
                 $script:LastConversationReportJson = $script:LastConversationReport | ConvertTo-Json -Depth 20
-
-                $reportText = Format-ConversationReportText -Report $script:LastConversationReport
-
-                if ($conversationReportText) {
-                    $conversationReportText.Text = $reportText
-                }
-
-                if ($inspectConversationReportButton) {
-                    $inspectConversationReportButton.IsEnabled = $true
-                }
-                if ($exportConversationReportJsonButton) {
-                    $exportConversationReportJsonButton.IsEnabled = $true
-                }
-                if ($exportConversationReportTextButton) {
-                    $exportConversationReportTextButton.IsEnabled = $true
-                }
-
-                # Complete progress bar
-                if ($conversationReportProgressBar) {
-                    $conversationReportProgressBar.Value = 100
-                }
-                if ($conversationReportProgressText) {
-                    $conversationReportProgressText.Text = "Complete"
-                }
+                if ($conversationReportText) { $conversationReportText.Text = (Format-ConversationReportText -Report $script:LastConversationReport) }
 
                 $errorCount = if ($script:LastConversationReport.Errors) { $script:LastConversationReport.Errors.Count } else { 0 }
                 if ($errorCount -gt 0) {
-                    if ($conversationReportStatus) {
-                        $conversationReportStatus.Text = "Report generated with $errorCount error(s)."
-                    }
-                    Add-LogEntry "Conversation report completed with $errorCount error(s)."
-                }
-                else {
-                    if ($conversationReportStatus) {
-                        $conversationReportStatus.Text = "Report generated successfully."
-                    }
-                    Add-LogEntry "Conversation report generated successfully."
+                    Set-ConvReportUiState -State 'Partial' -ExportEnabled $true -StatusText "Report generated with $errorCount error(s). [Correlation ID: $correlationId]" -ProgressPercent 100 -ProgressLabel "Complete" -WarningText "Report completed with partial data. [Correlation ID: $correlationId]"
+                    Add-LogEntry "Conversation report completed with $errorCount error(s). [Correlation ID: $correlationId]"
+                } else {
+                    Set-ConvReportUiState -State 'Complete' -ExportEnabled $true -StatusText "Report generated successfully. [Correlation ID: $correlationId]" -ProgressPercent 100 -ProgressLabel "Complete"
+                    Add-LogEntry "Conversation report generated successfully. [Correlation ID: $correlationId]"
                 }
             }
             catch {
-                if ($conversationReportStatus) {
-                    $conversationReportStatus.Text = "Report failed: $($_.Exception.Message)"
-                }
-                Add-LogEntry "Conversation report failed: $($_.Exception.Message)"
+                Set-ConvReportUiState -State 'Error' -StatusText "Report failed. [Correlation ID: $correlationId]" -ErrorText "Report failed: $($_.Exception.Message) [Correlation ID: $correlationId]" -ExportEnabled $false
+                Add-LogEntry "Conversation report failed: $($_.Exception.Message) [Correlation ID: $correlationId]"
             }
         })
 }
@@ -2057,7 +2030,11 @@ if ($exportConversationReportJsonButton) {
             $dialog.Title = "Export Conversation Report JSON"
             $dialog.FileName = "ConversationReport_$($script:LastConversationReport.ConversationId).json"
             if ($dialog.ShowDialog() -eq $true) {
-                $script:LastConversationReportJson | Out-File -FilePath $dialog.FileName -Encoding utf8
+                $jsonPayload = [ordered]@{
+                    ExportMeta = [ordered]@{ ExportedAt = (Get-Date).ToString('o'); Format = 'JSON'; ContainsPii = $true }
+                    Report = $script:LastConversationReport
+                }
+                $jsonPayload | ConvertTo-Json -Depth 20 | Out-File -FilePath $dialog.FileName -Encoding utf8
                 if ($conversationReportStatus) {
                     $conversationReportStatus.Text = "JSON exported to $($dialog.FileName)"
                 }
