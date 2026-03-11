@@ -1,0 +1,605 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-03-11T00:00:00Z",
+  "analysisMethod": "static",
+  "note": "All entries are STATIC-INFERRED from source code analysis. No live HTTP traffic was captured. Auth tokens are redacted (not present in static analysis). Observed response category is 'not-captured' for all entries.",
+  "requests": [
+    {
+      "workflowId": "W-02",
+      "workflowTitle": "Test Token",
+      "stepNumber": 1,
+      "method": "GET",
+      "endpointPath": "/api/v2/users/me",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/users/me",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCRequest",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCRequest.ps1",
+      "triggeringControl": "TestTokenButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Lightweight token validation call. Returns user profile on 200."
+    },
+    {
+      "workflowId": "W-03",
+      "workflowTitle": "API Explorer Submit",
+      "stepNumber": 1,
+      "method": "DYNAMIC (user-selected)",
+      "endpointPath": "/api/v2/* (user-selected from PathCombo)",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/{user-selected-path}",
+      "queryParams": "user-provided (populated from PathCombo parameter schema)",
+      "requestBody": "user-provided or template-generated from ExamplePostBodies.json",
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCRequest",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCRequest.ps1",
+      "triggeringControl": "SubmitButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Fully dynamic. Any supported Genesys Cloud API v2 path can be called."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 1,
+      "method": "GET",
+      "endpointPath": "/api/v2/analytics/conversations/{conversationId}/details",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/{conversationId}/details",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Detailed analytics for the conversation."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 2,
+      "method": "GET",
+      "endpointPath": "/api/v2/conversations/{conversationId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/conversations/{conversationId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Core conversation metadata (participants, start/end, direction)."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 3,
+      "method": "GET",
+      "endpointPath": "/api/v2/conversations/{conversationId}/recordingmetadata",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/conversations/{conversationId}/recordingmetadata",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Recording metadata (duration, archiving status)."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 4,
+      "method": "GET",
+      "endpointPath": "/api/v2/speechandtextanalytics/conversations/{conversationId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/speechandtextanalytics/conversations/{conversationId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Speech & text analytics data. May 404 if not licensed."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 5,
+      "method": "GET",
+      "endpointPath": "/api/v2/speechandtextanalytics/conversations/{conversationId}/sentiments",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/speechandtextanalytics/conversations/{conversationId}/sentiments",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Sentiment scores per participant. May 404 if not licensed."
+    },
+    {
+      "workflowId": "W-04",
+      "workflowTitle": "Conversation Report",
+      "stepNumber": 6,
+      "method": "GET",
+      "endpointPath": "/api/v2/telephony/sipmessages/conversations/{conversationId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/telephony/sipmessages/conversations/{conversationId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-ConversationReport",
+      "sourceFile": "apps/OpsConsole/Resources/UI/UI.PreMain.ps1",
+      "triggeringControl": "RunConversationReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "SIP protocol data. Only applicable to voice conversations with SIP trunk."
+    },
+    {
+      "workflowId": "W-05",
+      "workflowTitle": "Queue Wait Coverage",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/analytics/conversations/aggregates/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/aggregates/query",
+      "queryParams": null,
+      "requestBody": {
+        "interval": "{user-provided ISO8601 interval}",
+        "groupBy": ["queueId"],
+        "metrics": ["oWaiting", "nConnected"],
+        "filter": {"type": "and", "predicates": [{"dimension": "queueId", "value": "{queueId}"}]}
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-GCQueueWaitCoverage",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Get-GCQueueWaitCoverage.ps1",
+      "triggeringControl": "RunQueueWaitReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Aggregate analytics for queue. Body shape is inferred from function logic."
+    },
+    {
+      "workflowId": "W-05",
+      "workflowTitle": "Queue Wait Coverage",
+      "stepNumber": 2,
+      "method": "POST",
+      "endpointPath": "/api/v2/analytics/conversations/details/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/details/query",
+      "queryParams": null,
+      "requestBody": {
+        "interval": "{user-provided ISO8601 interval}",
+        "conversationFilters": [{"type": "and", "predicates": [{"dimension": "queueId", "value": "{queueId}"}]}]
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-GCQueueWaitCoverage",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Get-GCQueueWaitCoverage.ps1",
+      "triggeringControl": "RunQueueWaitReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": null
+    },
+    {
+      "workflowId": "W-05",
+      "workflowTitle": "Queue Wait Coverage",
+      "stepNumber": 3,
+      "method": "GET",
+      "endpointPath": "/api/v2/routing/queues/{queueId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/routing/queues/{queueId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-GCQueueWaitCoverage",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Get-GCQueueWaitCoverage.ps1",
+      "triggeringControl": "RunQueueWaitReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Queue configuration and member/skill info."
+    },
+    {
+      "workflowId": "W-05",
+      "workflowTitle": "Queue Wait Coverage",
+      "stepNumber": 4,
+      "method": "GET",
+      "endpointPath": "/api/v2/routing/skills",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/routing/skills",
+      "queryParams": {"pageSize": "100"},
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-GCQueueWaitCoverage",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Get-GCQueueWaitCoverage.ps1",
+      "triggeringControl": "RunQueueWaitReportButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Skill name mapping. No pagination guard confirmed."
+    },
+    {
+      "workflowId": "W-06",
+      "workflowTitle": "Audit Investigator",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/audits/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query",
+      "queryParams": null,
+      "requestBody": {
+        "interval": "{AuditStartInput}/{AuditEndInput}",
+        "serviceName": "{AuditServiceInput (optional)}",
+        "filters": [
+          {"property": "EntityType", "value": "{AuditEntityInput (optional)}"},
+          {"property": "UserId", "value": "{AuditUserInput (optional)}"}
+        ]
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunAuditInvestigatorButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Creates async audit job. Returns executionId."
+    },
+    {
+      "workflowId": "W-06",
+      "workflowTitle": "Audit Investigator",
+      "stepNumber": 2,
+      "method": "GET",
+      "endpointPath": "/api/v2/audits/query/{executionId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query/{executionId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunAuditInvestigatorButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Poll loop. Repeated until status = SUCCEEDED."
+    },
+    {
+      "workflowId": "W-06",
+      "workflowTitle": "Audit Investigator",
+      "stepNumber": 3,
+      "method": "GET",
+      "endpointPath": "/api/v2/audits/query/{executionId}/results",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query/{executionId}/results",
+      "queryParams": {"cursor": "{pagination cursor (optional)}"},
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunAuditInvestigatorButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Paginated. Repeats while next cursor present. Max 400 results."
+    },
+    {
+      "workflowId": "W-07",
+      "workflowTitle": "Operational Events",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/audits/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query",
+      "queryParams": null,
+      "requestBody": {
+        "interval": "{derived from OperationalEventDefinitionsInput or preset}",
+        "filters": [{"property": "Topic", "value": "{selected topic}"}]
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunOperationalEventsButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Same pattern as W-06. Topic-filtered."
+    },
+    {
+      "workflowId": "W-07",
+      "workflowTitle": "Operational Events",
+      "stepNumber": 2,
+      "method": "GET",
+      "endpointPath": "/api/v2/audits/query/{executionId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query/{executionId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunOperationalEventsButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Poll until SUCCEEDED."
+    },
+    {
+      "workflowId": "W-07",
+      "workflowTitle": "Operational Events",
+      "stepNumber": 3,
+      "method": "GET",
+      "endpointPath": "/api/v2/audits/query/{executionId}/results",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/audits/query/{executionId}/results",
+      "queryParams": {"cursor": "{pagination cursor (optional)}"},
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCAuditQuery",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Private/Invoke-GCAuditQuery.ps1",
+      "triggeringControl": "RunOperationalEventsButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": null
+    },
+    {
+      "workflowId": "W-08",
+      "workflowTitle": "Insight Pack Execution",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/analytics/conversations/aggregates/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/aggregates/query",
+      "queryParams": null,
+      "requestBody": {
+        "note": "Pack-specific. Defined in insights/packs/*.json pipeline steps."
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCInsightPack",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCInsightPack.ps1",
+      "triggeringControl": "RunSelectedInsightPackButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Most packs use analytics aggregates. Exact body varies by pack."
+    },
+    {
+      "workflowId": "W-08",
+      "workflowTitle": "Insight Pack Execution",
+      "stepNumber": 2,
+      "method": "POST",
+      "endpointPath": "/api/v2/analytics/conversations/details/query",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/details/query",
+      "queryParams": null,
+      "requestBody": {
+        "note": "Pack-specific. Only for packs requiring per-conversation detail data."
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCInsightPack",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCInsightPack.ps1",
+      "triggeringControl": "RunSelectedInsightPackButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Applicable to enriched packs (e.g. DataActions Enriched)."
+    },
+    {
+      "workflowId": "W-10",
+      "workflowTitle": "Live Subscriptions",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/notifications/channels",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/notifications/channels",
+      "queryParams": null,
+      "requestBody": {
+        "name": "{channelName}",
+        "channelType": "websocket",
+        "description": "Live events from API Explorer"
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "New-GCNotificationChannel",
+      "sourceFile": "Scripts/GenesysCloud.NotificationsToolkit/GenesysCloud.NotificationsToolkit.psm1",
+      "triggeringControl": "StartLiveSubscriptionButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Returns channel object with id property."
+    },
+    {
+      "workflowId": "W-10",
+      "workflowTitle": "Live Subscriptions",
+      "stepNumber": 2,
+      "method": "POST",
+      "endpointPath": "/api/v2/notifications/channels/{channelId}/subscriptions",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/notifications/channels/{channelId}/subscriptions",
+      "queryParams": null,
+      "requestBody": {
+        "topics": [{"id": "{topicId}"}]
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Add-GCNotificationSubscriptions",
+      "sourceFile": "Scripts/GenesysCloud.NotificationsToolkit/GenesysCloud.NotificationsToolkit.psm1",
+      "triggeringControl": "StartLiveSubscriptionButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Subscribes channel to one or more notification topics."
+    },
+    {
+      "workflowId": "W-10",
+      "workflowTitle": "Live Subscriptions",
+      "stepNumber": 3,
+      "method": "WebSocket",
+      "endpointPath": "/api/v2/notifications/channels/{channelId}/websocket",
+      "baseUrl": "wss://notifications.{region}.pure.cloud",
+      "fullResolvedUrl": "wss://notifications.{region}.pure.cloud/api/v2/notifications/channels/{channelId}/websocket",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]"
+      },
+      "sourceFunction": "Connect-GCNotificationWebSocket",
+      "sourceFile": "Scripts/GenesysCloud.NotificationsToolkit/GenesysCloud.NotificationsToolkit.psm1",
+      "triggeringControl": "StartLiveSubscriptionButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Persistent WebSocket connection. Events received as JSON messages."
+    },
+    {
+      "workflowId": "W-10",
+      "workflowTitle": "Live Subscriptions (topic refresh)",
+      "stepNumber": 1,
+      "method": "GET",
+      "endpointPath": "/api/v2/notifications/topics",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/notifications/topics",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Get-GCNotificationTopics",
+      "sourceFile": "Scripts/GenesysCloud.NotificationsToolkit/GenesysCloud.NotificationsToolkit.psm1",
+      "triggeringControl": "RefreshLiveSubTopicsButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Returns all available notification topics. Can be very large response. No pagination confirmed."
+    },
+    {
+      "workflowId": "W-12",
+      "workflowTitle": "Ops Conversation Ingest",
+      "stepNumber": 1,
+      "method": "POST",
+      "endpointPath": "/api/v2/analytics/conversations/details/jobs",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/details/jobs",
+      "queryParams": null,
+      "requestBody": {
+        "interval": "{derived from OpsDashboardTimePresetCombo}",
+        "conversationFilters": []
+      },
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCConversationIngest",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCConversationIngest.ps1",
+      "triggeringControl": "RunOpsConversationIngestButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Creates bulk conversation details job. Returns jobId."
+    },
+    {
+      "workflowId": "W-12",
+      "workflowTitle": "Ops Conversation Ingest",
+      "stepNumber": 2,
+      "method": "GET",
+      "endpointPath": "/api/v2/analytics/conversations/details/jobs/{jobId}",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/details/jobs/{jobId}",
+      "queryParams": null,
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCConversationIngest",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCConversationIngest.ps1",
+      "triggeringControl": "RunOpsConversationIngestButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Poll until state=FULFILLED."
+    },
+    {
+      "workflowId": "W-12",
+      "workflowTitle": "Ops Conversation Ingest",
+      "stepNumber": 3,
+      "method": "GET",
+      "endpointPath": "/api/v2/analytics/conversations/details",
+      "baseUrl": "https://api.{region}.pure.cloud",
+      "fullResolvedUrl": "https://api.{region}.pure.cloud/api/v2/analytics/conversations/details",
+      "queryParams": {"jobId": "{jobId}", "cursor": "{pagination cursor (optional)}"},
+      "requestBody": null,
+      "headers": {
+        "Authorization": "Bearer [REDACTED]",
+        "Content-Type": "application/json"
+      },
+      "sourceFunction": "Invoke-GCConversationIngest",
+      "sourceFile": "src/GenesysCloud.OpsInsights/Public/Invoke-GCConversationIngest.ps1",
+      "triggeringControl": "RunOpsConversationIngestButton",
+      "observedResponseCategory": "not-captured",
+      "valid": true,
+      "notes": "Paginated result retrieval. Written to JSONL store."
+    }
+  ]
+}
