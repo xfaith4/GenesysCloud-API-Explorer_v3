@@ -248,9 +248,9 @@
     "Created": "2025-12-08 08:00:00"
   },
   {
-    "Name": "Get Sentiment Data for Conversation",
+    "Name": "Get Conversation Summaries (Speech and Text Analytics)",
     "Method": "GET",
-    "Path": "/api/v2/speechandtextanalytics/conversations/{conversationId}/sentiments",
+    "Path": "/api/v2/speechandtextanalytics/conversations/{conversationId}/summaries",
     "Group": "Speech and Text Analytics",
     "Parameters": {
       "conversationId": "conversation-id-goes-here"
@@ -365,10 +365,10 @@
     "Created": "2025-12-11 07:00:00"
   },
   {
-    "Name": "Get User's Active Conversations",
+    "Name": "Get Agent Real-Time Status",
     "Method": "GET",
-    "Path": "/api/v2/users/{userId}/conversations",
-    "Group": "Users",
+    "Path": "/api/v2/analytics/agents/{userId}/status",
+    "Group": "Analytics",
     "Parameters": {
       "userId": "user-id-goes-here"
     },
@@ -530,45 +530,44 @@
     "Created": "2025-12-11 07:00:00"
   },
   {
-    "Name": "Search Division Objects",
-    "Method": "GET",
-    "Path": "/api/v2/authorization/divisions/{divisionId}/objects",
+    "Name": "Get Division Objects by Type",
+    "Method": "POST",
+    "Path": "/api/v2/authorization/divisions/{divisionId}/objects/{objectType}",
     "Group": "Authorization",
     "Parameters": {
       "divisionId": "division-id-goes-here",
       "objectType": "QUEUE",
-      "pageSize": "100"
+      "body": "[]"
     },
     "Created": "2025-12-11 07:00:00"
   },
   {
-    "Name": "Get API Usage - Organization Summary",
-    "Method": "GET",
-    "Path": "/api/v2/usage/query/organization",
+    "Name": "Query API Usage - Start Async Job",
+    "Method": "POST",
+    "Path": "/api/v2/usage/query",
     "Group": "Usage",
     "Parameters": {
-      "interval": "2025-12-01T00:00:00.000Z/2025-12-07T23:59:59.999Z"
+      "body": "{\n  \"interval\": \"2025-12-01T00:00:00.000Z/2025-12-07T23:59:59.999Z\"\n}"
     },
     "Created": "2025-12-11 07:00:00"
   },
   {
-    "Name": "Get API Usage - By Client",
+    "Name": "Get API Usage - By OAuth Client (Summary)",
     "Method": "GET",
-    "Path": "/api/v2/usage/query/clients",
+    "Path": "/api/v2/oauth/clients/{clientId}/usage/summary",
     "Group": "Usage",
     "Parameters": {
-      "interval": "2025-12-01T00:00:00.000Z/2025-12-07T23:59:59.999Z"
+      "clientId": "client-id-goes-here"
     },
     "Created": "2025-12-11 07:00:00"
   },
   {
-    "Name": "Get API Usage - By User",
+    "Name": "Get API Usage Job Results",
     "Method": "GET",
-    "Path": "/api/v2/usage/query/users",
+    "Path": "/api/v2/usage/query/{executionId}/results",
     "Group": "Usage",
     "Parameters": {
-      "interval": "2025-12-01T00:00:00.000Z/2025-12-07T23:59:59.999Z",
-      "pageSize": "100"
+      "executionId": "execution-id-goes-here"
     },
     "Created": "2025-12-11 07:00:00"
   },
@@ -585,15 +584,14 @@
   {
     "Name": "Get Audit Query Results",
     "Method": "GET",
-    "Path": "/api/v2/audits/query",
+    "Path": "/api/v2/audits/query/{transactionId}/results",
     "Group": "Audits",
     "Parameters": {
+      "transactionId": "transaction-id-goes-here",
       "pageSize": "25",
       "pageNumber": "1",
       "sortBy": "timestamp",
-      "sortOrder": "descending",
-      "facetName": "",
-      "interval": "2025-12-01T00:00:00.000Z/2025-12-07T23:59:59.999Z"
+      "sortOrder": "descending"
     },
     "Created": "2025-12-11 07:00:00"
   },

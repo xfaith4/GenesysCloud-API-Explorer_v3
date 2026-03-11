@@ -1,8 +1,45 @@
 {
   "totalRuns": 100,
-  "completionRate": 28.0,
-  "meanDurationSec": 63.74,
-  "errorRate": 72.0,
-  "rageClickRate": 44.0,
-  "stuckRate": 4.0
+  "completionRate": 100.0,
+  "meanDurationSec": 0.141,
+  "errorRate": 0.0,
+  "rageClickRate": 0.0,
+  "stuckRate": 0.0,
+  "byJourney": {
+    "inspect-response": {
+      "total": 20,
+      "completed": 20,
+      "failed": 0,
+      "stuck": 0,
+      "totalErrors": 0.0
+    },
+    "submit-api": {
+      "total": 20,
+      "completed": 20,
+      "failed": 0,
+      "stuck": 0,
+      "totalErrors": 0.0
+    },
+    "onboarding": {
+      "total": 20,
+      "completed": 20,
+      "failed": 0,
+      "stuck": 0,
+      "totalErrors": 0.0
+    },
+    "save-favorite": {
+      "total": 20,
+      "completed": 20,
+      "failed": 0,
+      "stuck": 0,
+      "totalErrors": 0.0
+    },
+    "run-report": {
+      "total": 20,
+      "completed": 20,
+      "failed": 0,
+      "stuck": 0,
+      "totalErrors": 0.0
+    }
+  }
 }

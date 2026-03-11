@@ -10,7 +10,10 @@ reports/
 
 # Python caches
 app/__pycache__/
+
 # Pester / test artifacts
 testResults*.xml
 TestResults*.xml
 artifacts/test-results/
+artifacts/ux-simulations/
+
