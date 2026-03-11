@@ -791,18 +791,37 @@
             <TextBlock Text="Conversation ID:" VerticalAlignment="Center" FontWeight="Bold" Margin="0 0 8 0"/>
             <TextBox Name="ConversationReportIdInput" Width="350" Height="28" VerticalContentAlignment="Center"
                      ToolTip="Enter the conversation ID to generate a report"/>
-            <Button Name="RunConversationReportButton" Width="120" Height="30" Content="Run Report" Margin="10 0 0 0"/>
+            <Button Name="RunConversationReportButton" Width="120" Height="30" Content="Run Report" Margin="10 0 0 0"
+                    AutomationProperties.Name="Run Conversation Report" KeyboardNavigation.TabIndex="1"/>
           </StackPanel>
           <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0 0 0 10">
             <Button Name="InspectConversationReportButton" Width="140" Height="30" Content="Inspect Result" IsEnabled="False"/>
-            <Button Name="ExportConversationReportJsonButton" Width="140" Height="30" Content="Export JSON" Margin="10 0 0 0" IsEnabled="False"/>
+            <Button Name="ExportConversationReportJsonButton" Width="140" Height="30" Content="Export JSON" Margin="10 0 0 0" IsEnabled="False"
+                    ToolTip="Export full report as JSON (may contain PII)"/>
             <Button Name="ExportConversationReportTextButton" Width="140" Height="30" Content="Export Text" Margin="10 0 0 0" IsEnabled="False"/>
-            <TextBlock Name="ConversationReportStatus" VerticalAlignment="Center" Foreground="SlateGray" Margin="10 0 0 0"/>
+            <TextBlock Name="ConversationReportStatus" VerticalAlignment="Center" Foreground="SlateGray" Margin="10 0 0 0"
+                       AutomationProperties.LiveSetting="Polite"/>
           </StackPanel>
           <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0 0 0 10">
+            <Border Name="ConvReportErrorBanner"
+                    Background="#FFEBEE" BorderBrush="#C62828" BorderThickness="1"
+                    Padding="8,6" Margin="0,0,0,4" Visibility="Collapsed">
+              <TextBlock Name="ConvReportErrorText" TextWrapping="Wrap"
+                         Foreground="#C62828" FontSize="12"/>
+            </Border>
+            <Border Name="ConvReportWarningBanner"
+                    Background="#FFF8E1" BorderBrush="#F9A825" BorderThickness="1"
+                    Padding="8,6" Margin="0,0,0,4" Visibility="Collapsed">
+              <TextBlock Name="ConvReportWarningText" TextWrapping="Wrap"
+                         Foreground="#6D4C00" FontSize="12"/>
+            </Border>
             <TextBlock Text="Progress:" FontWeight="Bold" Margin="0 0 0 5"/>
-            <ProgressBar Name="ConversationReportProgressBar" Height="20" Minimum="0" Maximum="100" Value="0"/>
-            <TextBlock Name="ConversationReportProgressText" Margin="0 5 0 0" Foreground="DarkBlue" FontSize="10"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+              <ProgressBar Name="ConversationReportProgressBar" Width="300" Height="14" Minimum="0" Maximum="100" Value="0" IsIndeterminate="False"/>
+              <TextBlock Name="ConversationReportProgressText" Margin="8,0,0,0" VerticalAlignment="Center" Foreground="DarkBlue" FontSize="10"/>
+              <Button Name="CancelConversationReportButton" Content="Cancel" Width="60" Height="22" Margin="8,0,0,0"
+                      Visibility="Collapsed" Background="#EF9A9A"/>
+            </StackPanel>
           </StackPanel>
           <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0 0 0 10">
             <TextBlock Text="Endpoint Query Log:" FontWeight="Bold" Margin="0 0 0 5"/>
