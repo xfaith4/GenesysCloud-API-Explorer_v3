@@ -48,7 +48,6 @@ function Get-GCNotificationTopics {
 function Save-GCNotificationTopicsCache {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
         [string]$AccessToken,
         [string]$BaseUri,
         [string]$OutputPath = (Join-Path -Path (Get-Location) -ChildPath 'GenesysCloudNotificationTopics.json'),
@@ -220,6 +219,7 @@ function Connect-GCNotificationWebSocket {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyString()]
         [string]$ChannelId,
         [string]$BaseUri,
         [string]$AccessToken,
@@ -321,7 +321,7 @@ function Connect-GCNotificationWebSocket {
 function Start-GCNotificationCapture {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
+        [AllowNull()]
         [psobject]$Connection,
         [string]$CaptureRoot,
         [string]$TopicGroup = 'all',

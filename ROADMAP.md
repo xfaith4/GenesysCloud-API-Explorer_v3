@@ -1,410 +1,183 @@
-Yes — I think it is worth saving.
+# Genesys Cloud Ops Console — Rescue Roadmap
 
-Not because every part is healthy. It isn’t. It’s worth saving because there is already a **working nucleus** inside it, and the repo has a clearer destiny than its name admits.
-
-## Core thesis
-
-This project should **stop trying to become a fully general Genesys Cloud API explorer first** and should instead become:
-
-# **Genesys Cloud Ops Console**
-
-An operator-grade investigation and evidence workbench, with a generic API explorer as a supporting utility.
-
-That shift matters. It cuts the fog.
+*Last updated: 2026-03-12. This document tracks what is broken, what the repair priority is, and what has been fixed.*
 
 ---
 
-# What to keep, freeze, cut, and harden
+## Current Status Summary
 
-## Keep
-
-These are the parts with real product gravity:
-
-### 1. Conversation investigation/reporting
-
-This is your proof-of-value feature. It already solves a real support workflow.
-
-### 2. OpsInsights module direction
-
-The module/backend split is the correct long-term architecture. Keep pushing logic out of the UI and into stable commands.
-
-### 3. Insight packs / evidence packet concept
-
-Very strong idea. This is where the app starts becoming something distinct from the official portal.
-
-### 4. Notifications/live subscription capability
-
-Potentially high-value, but only if turned into an investigation workflow instead of a “cool tab.”
-
-### 5. Export/report mindset
-
-Anything that turns findings into customer-facing or escalation-ready evidence is gold.
+| Area | Status | Notes |
+|------|--------|-------|
+| UI Filter Builder (8 tests) | FIXED | Duck-typed mocks replace WPF types; passes on Linux/CI |
+| OpsConsole UI Contracts (XAML parse) | FIXED | Skipped on non-Windows (WPF-only) |
+| NotificationsToolkit Exhaustive (12 tests) | FIXED | Removed Mandatory param prompts that blocked CI |
+| Conversation Report | Partial | DEF-001 thread blocking, DEF-003 no input guard |
+| Audit Investigator | Partial | DEF-001 thread blocking, DEF-003 no input guard |
+| Queue Wait Coverage | Partial | DEF-001 thread blocking |
+| Authentication | Partial | DEF-007 no token persistence, DEF-010 stale auth state |
+| Invoke-GCRequest | Missing | DEF-002 no 429 retry |
+| Live Subscriptions | Experimental | DEF-008 no pagination safety |
+| Generic API Explorer | Utility | Functional but secondary |
 
 ---
 
-## Freeze
+## Prioritized Fix Queue
 
-These should not be expanded until the core is stabilized.
+### P1 — Blocking CI / Test Infrastructure
 
-### 1. Generic explorer breadth
+These must be fixed before any developer can run the test suite reliably.
 
-Do not add more broad explorer features right now.
-
-### 2. AI/copilot ambitions
-
-Interesting, but premature. Fancy robot garnish on unstable plumbing is how projects become haunted.
-
-### 3. New tabs
-
-No more tabs unless one replaces another or directly supports a hardened workflow.
-
-### 4. Template/catalog sprawl
-
-Do not invest heavily in catalogs and template ecosystems until the execution path is dependable.
+| ID | Issue | Status |
+|----|-------|--------|
+| T-001 | FilterBuilder tests fail on Linux (WPF assembly) | FIXED |
+| T-002 | OpsConsole XAML parse test fails on Linux | FIXED |
+| T-003 | NotificationsToolkit exhaustive tests hang (mandatory param prompts) | FIXED |
 
 ---
 
-## Cut or demote
+### P2 — High Severity Defects (Core Workflows)
 
-These may still exist, but they should lose center-stage status.
+#### DEF-001 — UI Thread Blocking on Long-Running API Workflows
 
-### 1. “API Explorer” as the headline identity
+**Impact**: App freezes during Conversation Report, Queue Wait, Audit queries.
+**Fix**: Wrap long-running button handlers in background threads with dispatcher callbacks.
+**Files**: `apps/OpsConsole/Resources/UI/UI.Run.ps1`
+**Affected handlers**: `RunConversationReportButton`, `RunQueueWaitReportButton`, `RunAuditInvestigatorButton`, `RunOperationalEventsButton`, `RunOpsConversationIngestButton`, `RunSelectedInsightPackButton`
 
-Demote it to a utility pane or secondary mode.
+#### DEF-002 — No HTTP 429 / Rate-Limit Retry in Invoke-GCRequest
 
-### 2. Half-finished surfaces competing equally
-
-If a tab does not support a complete operator job, it should be labeled clearly as:
-
-* Preview
-* Experimental
-* Internal
-* Not yet supported
-
-### 3. UI-owned business logic
-
-Every time a feature’s real logic lives mainly in the WPF shell, it becomes harder to test and easier to rot.
+**Impact**: Bulk operations fail silently when API rate-limits the caller.
+**Fix**: Add retry loop with exponential backoff (3 retries, 2s base) for 429 responses.
+**Files**: `src/GenesysCloud.OpsInsights/Public/Invoke-GCRequest.ps1`
 
 ---
 
-# The rescue roadmap
+### P3 — Medium Severity Defects (UX Quality)
 
-## Phase 0 — Reframe the product
+#### DEF-003 — No Input Validation Before Run Handlers
 
-This is a documentation and intent correction phase. Small effort, huge clarity.
+**Impact**: Empty/invalid inputs produce confusing stack traces instead of user-friendly errors.
+**Fix**: Add pre-flight guards in handlers with early `return` + status text message.
+**Files**: `apps/OpsConsole/Resources/UI/UI.Run.ps1`
 
-### Goal
+#### DEF-004 — Task Scheduler Button Has No OS Guard
 
-Rename the mental model of the app.
+**Impact**: `ScheduleOpsConversationIngestButton` errors on Linux/macOS with no explanation.
+**Fix**: Disable button on non-Windows at startup with a tooltip explaining why.
+**Files**: `apps/OpsConsole/Resources/UI/UI.Run.ps1`
 
-### Outcome
+#### DEF-007 — Token Not Persisted Across App Restarts
 
-The app becomes:
+**Impact**: Users must re-authenticate every launch — high friction for daily use.
+**Fix**: Optional DPAPI-encrypted token persistence with "Remember token" checkbox.
+**Files**: `apps/OpsConsole/Resources/UI/UI.PreMain.ps1`
 
-* **Primary:** operator workflows
-* **Secondary:** raw API exploration
-* **Tertiary:** experimental utilities
+#### DEF-010 — Auth State Not Updated on Token Expiry Mid-Session
 
-### Deliverables
-
-* Rewrite README to match current truth
-* Add explicit feature maturity table
-* Add “supported workflows” section
-* Add “experimental surfaces” section
-* Rename internal language from “Explorer-first” to “Ops Console / Investigation Console”
-
-### Why this matters
-
-Right now the repo is telling a slightly fictional story about itself. That damages prioritization.
+**Impact**: Users see opaque errors when their token expires during a workflow.
+**Fix**: Detect 401 in `Invoke-GCRequest` and call `Update-AuthUiState` with Expired status.
+**Files**: `src/GenesysCloud.OpsInsights/Public/Invoke-GCRequest.ps1`
 
 ---
 
-## Phase 1 — Stabilize the foundation
+### P4 — Low Severity / Polish
 
-This is the boring, noble, civilization-preserving phase.
+#### DEF-005 — ExportInsightBriefingButton Has No Tooltip
 
-### Goal
+**Fix**: Add `ToolTip="Run an insight pack first to enable this export."` in XAML.
+**Files**: `apps/OpsConsole/Resources/UI/MainWindow.xaml`
 
-Make startup, auth, and feature loading predictable.
+#### DEF-006 — InspectResponseButton Active Before Any API Response
 
-### Focus areas
+**Fix**: Set `IsEnabled="False"` in XAML; enable on first successful response.
+**Files**: `apps/OpsConsole/Resources/UI/MainWindow.xaml`, `UI.Run.ps1`
 
-#### 1. Startup health
+#### DEF-008 — Notification Topic Refresh Has No Pagination Safety
 
-Create one clear startup path and log:
+**Fix**: Add `pageSize` parameter and pagination loop in `Get-GCNotificationTopics`.
+**Files**: `Scripts/GenesysCloud.NotificationsToolkit/GenesysCloud.NotificationsToolkit.psm1`
 
-* module imports
-* XAML load success
-* missing controls
-* missing files
-* feature enable/disable state
+#### DEF-009 — Template Buttons Have No Tooltip When Disabled
 
-#### 2. Auth reliability
-
-Auth has to become absurdly dependable. If token flow is flaky, every feature gets blamed for it.
-
-Build a single auth/context service that owns:
-
-* region/base URI
-* access token
-* expiry awareness if available
-* current org/session context
-* validation test call
-
-#### 3. Feature gating
-
-At launch, each feature should self-register as:
-
-* Ready
-* Partial
-* Disabled
-* Missing dependency
-
-That prevents the app from pretending everything is functional.
-
-#### 4. UI contract enforcement
-
-You already have tests around UI contracts. Double down. Every named control reference should be validated against XAML in CI/local test runs.
-
-### Exit criteria
-
-* app launches cleanly
-* missing controls are surfaced immediately
-* auth is validated once centrally
-* unsupported tabs are visibly marked
-* startup errors are diagnosable without spelunking
+**Fix**: Add `ToolTip="Select a template from the list above."` to XAML.
+**Files**: `apps/OpsConsole/Resources/UI/MainWindow.xaml`
 
 ---
 
-## Phase 2 — Extract the monster brain
+## Feature Maturity Table
 
-This is the highest-value technical cleanup.
-
-### Goal
-
-Break the giant UI scripts into feature slices.
-
-Right now, huge UI files are probably the main drag coefficient.
-
-### Target shape
-
-Refactor toward:
-
-* `UI.Shared.ps1`
-* `UI.Auth.ps1`
-* `UI.ApiExplorer.ps1`
-* `UI.ConversationReport.ps1`
-* `UI.AuditInvestigator.ps1`
-* `UI.QueueHealth.ps1`
-* `UI.LiveSubscriptions.ps1`
-* `UI.OpsDashboard.ps1`
-
-And separately:
-
-* `Services\AuthContext.ps1`
-* `Services\RequestExecution.ps1`
-* `Services\Export.ps1`
-* `Services\FeatureRegistration.ps1`
-
-### Rule
-
-UI files wire controls and events.
-Modules/services do the real work.
-
-### Exit criteria
-
-* no single UI file is a giant catch-all
-* feature event handlers are isolated
-* business logic is callable without the UI
-* tests can target feature services directly
+| Feature | Status | Intent |
+|---------|--------|--------|
+| Conversation Report | Ready-ish | Primary workflow — harden next |
+| Audit Investigator | Partial | Harden after Conversation Report |
+| Queue Health / Smoke | Partial | Harden next cycle |
+| Live Subscriptions | Experimental | Internal workflow |
+| Ops Dashboard | Experimental | Needs scope reduction |
+| Generic API Explorer | Utility | Secondary support surface |
+| Templates/Favorites | Utility | Keep minimal |
+| AI/Copilot | Deferred | Not core yet |
 
 ---
 
-## Phase 3 — Harden the three product pillars
+## Architectural Priorities
 
-This is where the app becomes respectable again.
+### What to keep
 
-You do **not** need ten polished features. You need **three undeniably useful ones**.
+1. **Conversation investigation/reporting** — proof-of-value feature.
+2. **OpsInsights module/backend split** — correct long-term architecture.
+3. **Insight packs / evidence packet concept** — unique differentiator.
+4. **Notifications/live subscription** — valuable if turned into investigation workflow.
+5. **Export/report mindset** — anything that turns findings into evidence is gold.
 
-## Pillar 1: Conversation Investigation
+### What to freeze (do not expand yet)
 
-Already strongest.
+1. Generic explorer breadth.
+2. AI/copilot ambitions.
+3. New tabs.
+4. Template/catalog sprawl.
 
-### Improve it by:
+### What to cut or demote
 
-* tightening error handling
-* making exports consistent
-* making endpoint coverage explicit
-* making “what failed / what was missing” very clear
-* adding saved investigation bundles/snapshots
-
-### Definition of done
-
-A Tier 3 engineer can investigate a conversation and produce evidence without touching raw APIs manually.
-
----
-
-## Pillar 2: Audit Investigator
-
-This is the best next candidate.
-
-### Why
-
-It fits the exact same operator muscle:
-
-* what changed
-* who changed it
-* when
-* what likely correlates with the issue
-
-### Required capabilities
-
-* time-window search
-* entity/user/action filtering
-* readable timeline
-* exportable evidence summary
-* correlation hints with incidents or known issue windows
-
-### Definition of done
-
-A support engineer can answer:
-
-> “Was this likely caused by a customer config change, admin action, or something platform-side?”
-
-That’s a huge value prop.
+1. "API Explorer" as the headline identity (demote to utility pane).
+2. Half-finished surfaces that do not support a complete operator job.
+3. UI-owned business logic (move to modules/services).
 
 ---
 
-## Pillar 3: Queue Health / Wait Coverage / Smoke Report
+## Sprint Execution Plan
 
-This feels like the next most practical workflow.
+### Sprint 0 (Complete) — CI / Test Infrastructure
 
-### Why
+- [x] Fix FilterBuilder regression tests on Linux.
+- [x] Fix OpsConsole UI contract tests on non-Windows.
+- [x] Fix NotificationsToolkit exhaustive test hang.
 
-It broadens the tool from single-conversation forensics into operational visibility.
+### Sprint 1 — Foundation Stability
 
-### Required capabilities
+- [ ] DEF-002: Add 429 retry to `Invoke-GCRequest`.
+- [ ] DEF-003: Add input guards to Run handlers.
+- [ ] DEF-010: Detect 401 and update auth state mid-session.
+- [ ] DEF-004: OS guard for Task Scheduler button.
 
-* queue-focused health summary
-* hot conversations / trouble samples
-* wait coverage gaps
-* confidence markers on findings
-* drilldowns from summary to example conversations
+### Sprint 2 — Core Workflow Hardening
 
-### Definition of done
+- [ ] DEF-001: Offload long-running handlers to background threads.
+- [ ] DEF-007: Optional token persistence.
+- [ ] Harden Conversation Report (tighten error handling, normalize exports).
+- [ ] Add investigation bundle snapshots.
 
-An engineer can detect queue-level symptoms and pivot into concrete evidence.
+### Sprint 3 — Audit Investigator + Queue Health
 
----
-
-# What should remain secondary
-
-## Generic API Explorer
-
-Keep it, but trim the ambition.
-
-It only needs to do a few things well:
-
-* endpoint selection
-* parameter entry
-* send request
-* inspect response
-* save/export request
-* favorites/history
-
-That is enough. It does not need to become a universal cathedral of schema wizardry before the actual ops workflows are strong.
+- [ ] Harden Audit Investigator (filtered timeline, exportable evidence).
+- [ ] Harden Queue Health (summary to drilldowns, confidence markers).
+- [ ] Polish: DEF-005, DEF-006, DEF-008, DEF-009.
 
 ---
 
-# Suggested feature maturity table
+## Success Definition
 
-Put this right in the README and maybe in the UI.
+The app succeeds when:
 
-| Feature              |       Status | Intent                    |
-| -------------------- | -----------: | ------------------------- |
-| Conversation Report  |    Ready-ish | Primary workflow          |
-| Audit Investigator   |      Partial | Harden next               |
-| Queue Health / Smoke |      Partial | Harden next               |
-| Live Subscriptions   | Experimental | Internal workflow         |
-| Ops Dashboard        | Experimental | Needs scope reduction     |
-| Generic API Explorer |      Utility | Secondary support surface |
-| Templates/Favorites  |      Utility | Keep minimal              |
-| AI/Copilot           |     Deferred | Not core yet              |
+> "A Genesys Cloud support engineer can investigate a conversation, audit a config change, or diagnose a queue issue and produce exportable evidence without touching raw APIs manually."
 
-That little table would do a shocking amount of psychological cleanup.
-
----
-
-# The order I would execute in
-
-## Sprint 1
-
-* rewrite README to tell the truth
-* add feature maturity status
-* centralize auth/context validation
-* add startup diagnostics
-* surface unsupported/partial features in UI
-
-## Sprint 2
-
-* split UI files by feature
-* move shared logic to services/modules
-* fix control mismatches and dead bindings
-* ensure tests catch XAML/code divergence
-
-## Sprint 3
-
-* harden Conversation Report
-* normalize export pipeline
-* add snapshots/investigation bundles
-* make investigation results reproducible
-
-## Sprint 4
-
-* harden Audit Investigator
-* add filtered audit timeline
-* build evidence summary export
-* add basic correlation hints
-
-## Sprint 5
-
-* harden Queue Health / Wait Coverage
-* connect summary to drilldowns
-* promote only if operators can use it end-to-end
-
----
-
-# What success looks like
-
-The saved version of this project is **not**:
-
-> “a PowerShell GUI that exposes lots of Genesys APIs”
-
-The saved version is:
-
-> “a Genesys Cloud support and investigation console that produces evidence, accelerates diagnosis, and reduces manual cross-endpoint digging”
-
-That is much stronger. And much more sellable, frankly.
-
----
-
-# The danger to avoid
-
-Do **not** try to rescue this by polishing everything evenly.
-
-That is project taxidermy. It looks busy and remains dead.
-
-Rescue it by making a few workflows brutally useful, and letting the rest either wait, shrink, or admit they are experimental.
-
----
-
-# My recommendation in one sentence
-
-Save it by **narrowing its identity, modularizing the UI, and hardening three operator workflows instead of twenty half-features**.
-
-If you want, I’ll turn this into a **concrete implementation plan** with:
-
-* repo restructuring recommendations
-* exact module/UI folder layout
-* feature status schema
-* and a first-pass backlog of tasks in priority order.
+Not: "a PowerShell GUI that exposes lots of Genesys APIs."

@@ -3,10 +3,29 @@
 BeforeAll {
     . "$PSScriptRoot\TestHelpers.ps1"
 
-    Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Xaml
+    # Load WPF assemblies only on Windows where they are available.
+    # On Linux/macOS, mock TextBox and ComboBox objects are used instead.
+    if ($IsWindows) {
+        Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Xaml
+    }
 
     $script:ResourcesRoot = Join-TestRepoPath -RelativePath 'apps/OpsConsole/Resources' -StartPath $PSScriptRoot
     . (Join-TestRepoPath -RelativePath 'apps/OpsConsole/Resources/UI/UI.PreMain.ps1' -StartPath $PSScriptRoot)
+
+    function New-MockTextBox {
+        param([string]$InitialText = '')
+        return [pscustomobject]@{ Text = $InitialText }
+    }
+
+    function New-MockComboBox {
+        $items = New-Object System.Collections.ArrayList
+        return [pscustomobject]@{
+            Items         = $items
+            IsEnabled     = $true
+            SelectedIndex = -1
+            SelectedItem  = $null
+        }
+    }
 }
 
 Describe 'UI filter builder regression coverage' -Tag @('UI', 'Regression', 'Unit') {
@@ -44,11 +63,11 @@ Describe 'UI filter builder regression coverage' -Tag @('UI', 'Regression', 'Uni
             Operators = @('matches', 'exists', 'gt')
         }
 
+        $mockValueControl = New-MockTextBox
         $script:CurrentBodyControl = [pscustomobject]@{
-            ValueControl = [System.Windows.Controls.TextBox]::new()
+            ValueControl = $mockValueControl
         }
-        $script:filterIntervalInput = [System.Windows.Controls.TextBox]::new()
-        $script:filterIntervalInput.Text = $script:FilterBuilderData.Interval
+        $script:filterIntervalInput = New-MockTextBox -InitialText $script:FilterBuilderData.Interval
     }
 
     It 'builds a dimension predicate without throwing (regression for dimension assignment crash)' {
@@ -93,8 +112,7 @@ Describe 'UI filter builder regression coverage' -Tag @('UI', 'Regression', 'Uni
     }
 
     It 'builds a property predicate with propertyType metadata' {
-        $propertyName = [System.Windows.Controls.TextBox]::new()
-        $propertyName.Text = 'disconnectType'
+        $propertyName = New-MockTextBox -InitialText 'disconnectType'
         $propertyType = New-Selector -SelectedItem 'string'
 
         $result = Build-FilterFromInput `
@@ -173,7 +191,7 @@ Describe 'UI filter builder regression coverage' -Tag @('UI', 'Regression', 'Uni
     }
 
     It 'updates field dropdown options from enum cache for dimensions' {
-        $combo = [System.Windows.Controls.ComboBox]::new()
+        $combo = New-MockComboBox
         Update-FilterFieldOptions -Scope 'Conversation' -PredicateType 'dimension' -ComboBox $combo
 
         $combo.IsEnabled | Should -BeTrue

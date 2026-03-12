@@ -13,8 +13,10 @@
     - UI implementation script (launch via `.\GenesysCloudAPIExplorer.ps1` from repo root).
 #>
 
-Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Xaml
-Add-Type -AssemblyName System.Windows.Forms
+if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+    Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Xaml
+    Add-Type -AssemblyName System.Windows.Forms
+}
 
 #region State + Models
 $ScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
@@ -2430,7 +2432,7 @@ function Update-FilterFieldOptions {
     param (
         [string]$Scope,
         [string]$PredicateType,
-        [System.Windows.Controls.ComboBox]$ComboBox
+        $ComboBox
     )
 
     if (-not $ComboBox) { return }
@@ -2557,10 +2559,11 @@ function Refresh-FilterList {
 
 function Get-BodyTextBox {
     if ($script:CurrentBodyControl) {
-        if ($script:CurrentBodyControl.ValueControl -and ($script:CurrentBodyControl.ValueControl -is [System.Windows.Controls.TextBox])) {
-            return $script:CurrentBodyControl.ValueControl
+        $vc = $script:CurrentBodyControl.ValueControl
+        if ($vc -and (Get-Member -InputObject $vc -Name 'Text' -ErrorAction SilentlyContinue)) {
+            return $vc
         }
-        if ($script:CurrentBodyControl -is [System.Windows.Controls.TextBox]) {
+        if (Get-Member -InputObject $script:CurrentBodyControl -Name 'Text' -ErrorAction SilentlyContinue) {
             return $script:CurrentBodyControl
         }
     }
@@ -2712,7 +2715,7 @@ function Build-FilterFromInput {
     # - property: user supplies the property name via PropertyNameInput
     $fieldName = ""
     if ($predicateType -eq "property") {
-        if ($PropertyNameInput -and ($PropertyNameInput -is [System.Windows.Controls.TextBox])) {
+        if ($PropertyNameInput -and (Get-Member -InputObject $PropertyNameInput -Name 'Text' -ErrorAction SilentlyContinue)) {
             $fieldName = $PropertyNameInput.Text
         }
     }
