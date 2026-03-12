@@ -1782,6 +1782,7 @@ if ($appSettingsMenuItem) {
             else {
                 $type = if ($result.OAuthType) { [string]$result.OAuthType } else { 'Manual' }
                 Set-ExplorerAccessToken -Token $tokenValue -OAuthType $type
+                try { Connect-GCCloud -RegionDomain $script:Region -AccessToken $tokenValue | Out-Null } catch { }
             }
 
             Update-AuthUiState
@@ -1845,6 +1846,7 @@ if ($loginButton) {
 
                 $oauthType = if ($script:LastLoginOAuthType) { [string]$script:LastLoginOAuthType } else { 'Login' }
                 Set-ExplorerAccessToken -Token ([string]$newToken) -OAuthType $oauthType
+                try { Connect-GCCloud -RegionDomain $script:Region -AccessToken ([string]$newToken) | Out-Null } catch { }
                 Update-AuthUiState
                 Add-LogEntry "Token updated via Login ($oauthType)."
             }
@@ -1947,6 +1949,13 @@ if ($exportJobResultsButton) {
 if ($runConversationReportButton) {
     $runConversationReportButton.Add_Click({
             $correlationId = [guid]::NewGuid().ToString()
+
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Conversation report blocked: session expired. [Correlation ID: $correlationId]"
+                Show-LoginWindow | Out-Null
+                return
+            }
+
             $convId = if ($conversationReportIdInput) { $conversationReportIdInput.Text.Trim() } else { "" }
 
             if (-not $convId) {
@@ -1988,6 +1997,10 @@ if ($runConversationReportButton) {
                         -ProgressPercent 0 -ProgressLabel "Initializing..." -ExportEnabled $false
                     if ($conversationReportEndpointLog) { $conversationReportEndpointLog.Text = "" }
                     Add-LogEntry "Generating conversation report for: $capturedConvId [Correlation ID: $capturedCorrelationId]"
+                    Write-UxEvent -Name 'conversation_report_start' -Properties @{
+                        conversationId = $capturedConvId
+                        correlationId  = $capturedCorrelationId
+                    }
                 } `
                 -WorkParams @{
                     ConvId          = $capturedConvId
@@ -2070,6 +2083,10 @@ if ($runConversationReportButton) {
                             -ProgressPercent 100 -ProgressLabel "Complete"
                         Add-LogEntry "Conversation report generated successfully. [Correlation ID: $capturedCorrelationId]"
                     }
+                    Write-UxEvent -Name 'conversation_report_complete' -Properties @{
+                        correlationId = $capturedCorrelationId
+                        errorCount    = $errorCount
+                    }
                 } `
                 -OnError {
                     param($err)
@@ -2082,6 +2099,10 @@ if ($runConversationReportButton) {
                         -ErrorText "Report failed: $errMsg [Correlation ID: $capturedCorrelationId]" `
                         -ExportEnabled $false
                     Add-LogEntry "Conversation report failed: $errMsg [Correlation ID: $capturedCorrelationId]"
+                    Write-UxEvent -Name 'conversation_report_fail' -Properties @{
+                        correlationId = $capturedCorrelationId
+                        errorCategory = $err.GetType().Name
+                    }
                 }
         })
 }
@@ -3405,6 +3426,15 @@ if ($auditFilterInput) {
 
 if ($runAuditInvestigatorButton) {
     $runAuditInvestigatorButton.Add_Click({
+            $auditCorrelationId = [guid]::NewGuid().ToString()
+
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                if ($auditStatusText) { $auditStatusText.Text = "Session expired. Please log in again. [Correlation ID: $auditCorrelationId]" }
+                Add-LogEntry "Audit query blocked: session expired. [Correlation ID: $auditCorrelationId]"
+                Show-LoginWindow | Out-Null
+                return
+            }
+
             $start = $null
             if ($auditStartInput -and -not [string]::IsNullOrWhiteSpace($auditStartInput.Text)) {
                 try { $start = [DateTime]::Parse($auditStartInput.Text) } catch { $start = $null }
@@ -3434,20 +3464,25 @@ if ($runAuditInvestigatorButton) {
             $service = if ($auditServiceInput -and -not [string]::IsNullOrWhiteSpace($auditServiceInput.Text)) { $auditServiceInput.Text.Trim() } else { $null }
 
             # Capture inputs before background task (DEF-001)
-            $capturedInterval       = $interval
-            $capturedFilters        = $filters
-            $capturedService        = $service
-            $capturedModuleManifest = $script:OpsInsightsManifest
-            $capturedBaseUrl        = $ApiBaseUrl
-            $capturedToken          = $token
+            $capturedInterval         = $interval
+            $capturedFilters          = $filters
+            $capturedService          = $service
+            $capturedModuleManifest   = $script:OpsInsightsManifest
+            $capturedBaseUrl          = $ApiBaseUrl
+            $capturedToken            = $token
+            $capturedAuditCorrId      = $auditCorrelationId
 
             Invoke-UIBackgroundTask `
                 -OnStart {
-                    $auditStatusText.Text = "Querying audit events..."
+                    $auditStatusText.Text = "Querying audit events... [Correlation ID: $capturedAuditCorrId]"
                     $script:AuditInvestigatorEvents.Clear()
                     if ($exportAuditJsonButton) { $exportAuditJsonButton.IsEnabled = $false }
                     if ($exportAuditSummaryButton) { $exportAuditSummaryButton.IsEnabled = $false }
                     if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $false }
+                    Write-UxEvent -Name 'audit_query_start' -Properties @{
+                        interval      = $capturedInterval
+                        correlationId = $capturedAuditCorrId
+                    }
                 } `
                 -WorkParams @{
                     Interval       = $capturedInterval
@@ -3476,18 +3511,26 @@ if ($runAuditInvestigatorButton) {
                             }) | Out-Null
                     }
                     $auditTimelineText.Text = Format-AuditTimelineText -Events @($script:AuditInvestigatorEvents)
-                    $auditStatusText.Text = "Audit query returned $($script:AuditInvestigatorEvents.Count) events."
+                    $auditStatusText.Text = "Audit query returned $($script:AuditInvestigatorEvents.Count) events. [Correlation ID: $capturedAuditCorrId]"
                     $hasEvents = $script:AuditInvestigatorEvents.Count -gt 0
                     if ($exportAuditJsonButton) { $exportAuditJsonButton.IsEnabled = $hasEvents }
                     if ($exportAuditSummaryButton) { $exportAuditSummaryButton.IsEnabled = $hasEvents }
                     if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $true }
+                    Write-UxEvent -Name 'audit_query_complete' -Properties @{
+                        correlationId = $capturedAuditCorrId
+                        recordCount   = $script:AuditInvestigatorEvents.Count
+                    }
                 } `
                 -OnError {
                     param($err)
                     $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
-                    $auditStatusText.Text = "Audit query failed: $errMsg"
-                    Add-LogEntry "Audit query failed: $errMsg"
+                    $auditStatusText.Text = "Audit query failed. Correlation ID: $capturedAuditCorrId. See trace log for details."
+                    Add-LogEntry "Audit query failed: $errMsg [Correlation ID: $capturedAuditCorrId]"
                     if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $true }
+                    Write-UxEvent -Name 'audit_query_fail' -Properties @{
+                        correlationId = $capturedAuditCorrId
+                        errorCategory = $err.GetType().Name
+                    }
                 }
         })
 }
@@ -4322,6 +4365,13 @@ $btnSubmit.Add_Click({
         Write-UxEvent -Name "cta_click" -Properties @{ control = "submit"; path = $selectedPath; method = $selectedMethod }
         if (Test-RageClick -Now $now) {
             Write-UxEvent -Name "rage_click" -Properties @{ control = "submit"; path = $selectedPath; method = $selectedMethod }
+        }
+
+        if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+            $statusText.Text = "Session expired. Please log in again."
+            Add-LogEntry "Submit blocked: session expired."
+            Show-LoginWindow | Out-Null
+            return
         }
 
         if (-not $selectedPath -or -not $selectedMethod) {

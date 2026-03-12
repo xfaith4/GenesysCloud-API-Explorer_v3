@@ -1,0 +1,33 @@
+{
+  "entities": [
+    {
+      "id": "event-001",
+      "timestamp": "2025-01-01T10:00:00.000Z",
+      "userId": "user-abc",
+      "service": "Routing",
+      "action": "Update",
+      "entityId": "queue-xyz"
+    },
+    {
+      "id": "event-002",
+      "timestamp": "2025-01-01T11:30:00.000Z",
+      "userId": "user-def",
+      "service": "Quality",
+      "action": "Create",
+      "entityId": "form-123"
+    },
+    {
+      "id": "event-003",
+      "timestamp": "2025-01-01T14:45:00.000Z",
+      "userId": "user-abc",
+      "service": "Routing",
+      "action": "Delete",
+      "entityId": "queue-xyz"
+    }
+  ],
+  "cursor": null,
+  "pageCount": 1,
+  "pageNumber": 1,
+  "pageSize": 25,
+  "total": 3
+}

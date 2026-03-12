@@ -896,9 +896,11 @@ function Set-ExplorerAccessToken {
 
     if ([string]::IsNullOrWhiteSpace($tokenValue)) {
         $script:OAuthType = '(none)'
+        $script:TokenExpiresAt = $null
     }
     else {
         $script:OAuthType = if ($OAuthType) { $OAuthType } else { 'Manual' }
+        $script:TokenExpiresAt = (Get-Date).AddHours(23)
     }
 }
 
@@ -6000,11 +6002,12 @@ function Ensure-OpsInsightsContext {
     }
 
     try {
+        Connect-GCCloud -RegionDomain $script:Region -AccessToken ($token.Trim()) | Out-Null
         Set-GCContext -ApiBaseUri $ApiBaseUrl -AccessToken ($token.Trim()) -OnUnauthorized $authExpiredCallback | Out-Null
     }
     catch {
-        # Fallback to global token for older module behaviors
-        $global:AccessToken = $token.Trim()
+        # Last-resort: still configure the context directly so requests can proceed
+        try { Set-GCContext -ApiBaseUri $ApiBaseUrl -AccessToken ($token.Trim()) -OnUnauthorized $authExpiredCallback | Out-Null } catch { }
     }
 }
 

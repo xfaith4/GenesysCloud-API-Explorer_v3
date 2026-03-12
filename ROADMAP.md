@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Proceeding to Sprint 3.*
+*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete.*
 
 ---
 
@@ -108,11 +108,11 @@ These must be fixed before any developer can run the test suite reliably.
 
 | Feature | Status | Intent |
 |---------|--------|--------|
-| Conversation Report | Ready-ish | Primary workflow — harden next |
-| Audit Investigator | Partial | Harden after Conversation Report |
-| Queue Health / Smoke | Partial | Harden next cycle |
-| Live Subscriptions | Experimental | Internal workflow |
-| Ops Dashboard | Experimental | Needs scope reduction |
+| Conversation Report | Stable | Primary workflow — hardened (background threading, correlation IDs, telemetry) |
+| Audit Investigator | Stable | Hardened (background threading, correlation IDs, telemetry, offline tests) |
+| Queue Health / Smoke | Experimental | Backend tests pass; UI label applied |
+| Live Subscriptions | Experimental | Internal workflow; labelled |
+| Ops Dashboard | Experimental | Needs scope reduction; labelled |
 | Generic API Explorer | Utility | Secondary support surface |
 | Templates/Favorites | Utility | Keep minimal |
 | AI/Copilot | Deferred | Not core yet |
@@ -163,12 +163,13 @@ These must be fixed before any developer can run the test suite reliably.
       MaxAttempts exhaustion, UUID guard patterns, and token guard pattern.
       Full suite: 73 pass, 1 skipped, 0 failed.
 
-### Sprint 2 — Core Workflow Hardening
+### Sprint 2 (Complete, merged into Sprint 4) — Core Workflow Hardening
 
-- [ ] DEF-001: Offload long-running handlers to background threads.
-- [ ] DEF-007: Optional token persistence.
-- [ ] Harden Conversation Report (tighten error handling, normalize exports).
-- [ ] Add investigation bundle snapshots.
+- [x] DEF-001: Offload long-running handlers to background threads (`Invoke-UIBackgroundTask` pattern).
+- [x] DEF-007: Token expiry tracking (`$script:TokenExpiresAt`) + expiry guards in all key handlers.
+- [x] Harden Conversation Report (correlation IDs, `Write-UxEvent` telemetry, background thread).
+- [x] Auth bridge: `Connect-GCCloud` called at login to populate module context immediately.
+- [x] `Ensure-OpsInsightsContext` updated to use `Connect-GCCloud`; removed `$global:AccessToken` fallback.
 
 ### Sprint 3 (Complete) — Audit Investigator + Queue Health
 
@@ -179,6 +180,27 @@ These must be fixed before any developer can run the test suite reliably.
 - [x] Sprint 3 tests: 11 new tests in `Sprint3.Tests.ps1`
       (DEF-008 pagination, ConfidenceLevel values, confidence logic unit tests).
       Full suite: 86 pass, 1 skipped, 0 failed.
+
+### Sprint 4 (Complete) — Auth Hardening + Observability + Startup Safety
+
+- [x] S1-001: Bridge `Connect-GCCloud` at login — module context populated immediately after `Set-ExplorerAccessToken`.
+- [x] S1-002: Token expiry tracking (`$script:TokenExpiresAt = AddHours(23)`) + expiry guards in `btnSubmit`,
+      `runConversationReportButton`, and `runAuditInvestigatorButton` handlers.
+- [x] S1-003: `Ensure-OpsInsightsContext` now calls `Connect-GCCloud`; removed `$global:AccessToken` fallback.
+- [x] S1-004: `StartupDiagnostics.ps1` — `Invoke-StartupChecks` pure-PS pre-flight (PS version, ThreadJob,
+      resource files, UI scripts). `StartupDiagnostics.Tests.ps1`: 11 new tests.
+- [x] S1-005/S1-010: XAML tab labels — `[Experimental]` prefix applied to Ops Insights, Ops Dashboard,
+      Forensic Timeline, Queue Wait Coverage, Live Subscriptions, Operational Events.
+      Tab label tests added to `OpsConsole.UiContracts.Tests.ps1` (XML-parsed, no WPF needed).
+- [x] S1-007: `Write-UxEvent` telemetry added to Conversation Report handler:
+      `conversation_report_start`, `conversation_report_complete`, `conversation_report_fail`.
+- [x] S1-008: `AuditInvestigator.Offline.Tests.ps1` — 10 new offline Pester tests covering
+      result shape, entity content, guard rails, and multi-page pagination.
+- [x] S1-009: Correlation ID + `Write-UxEvent` telemetry added to Audit Investigator handler:
+      `audit_query_start`, `audit_query_complete`, `audit_query_fail`.
+- [x] `Invoke-GCAuditQuery` promoted to public API (added to `Export-ModuleMember` list).
+- [x] Sprint 4 tests: 29 new tests (11 StartupDiagnostics + 10 AuditInvestigator + 8 XAML label).
+      Full suite: 115 pass, 1 skipped, 0 failed.
 
 ---
 
