@@ -21,31 +21,41 @@ function Set-GCContext {
         [string]$AccessToken,
 
         [Parameter()]
-        [scriptblock]$TokenProvider
+        [scriptblock]$TokenProvider,
+
+        # Optional scriptblock invoked when a 401 response is received (auth expiry notification).
+        [Parameter()]
+        [scriptblock]$OnUnauthorized
     )
 
     if (-not $ApiBaseUri) {
         $ApiBaseUri = "https://api.$($RegionDomain)"
     }
-    $traceEnabled = $false
-    $tracePath    = $null
-    $connected    = $false
+    $traceEnabled    = $false
+    $tracePath       = $null
+    $connected       = $false
+    $prevUnauthorized = $null
 
     if ($script:GCContext) {
         $traceEnabled = [bool]$script:GCContext.TraceEnabled
         $tracePath    = [string]$script:GCContext.TracePath
         $connected    = [bool]$script:GCContext.Connected
+        # Preserve existing OnUnauthorized callback unless a new one is supplied
+        if ($script:GCContext.PSObject.Properties.Name -contains 'OnUnauthorized') {
+            $prevUnauthorized = $script:GCContext.OnUnauthorized
+        }
     }
 
     $script:GCContext = [pscustomobject]@{
-        RegionDomain  = $RegionDomain
-        ApiBaseUri    = $ApiBaseUri
-        AccessToken   = $AccessToken
-        TokenProvider = $TokenProvider
-        SetUtc        = (Get-Date).ToUniversalTime()
-        TraceEnabled  = $traceEnabled
-        TracePath     = $tracePath
-        Connected     = $connected
+        RegionDomain    = $RegionDomain
+        ApiBaseUri      = $ApiBaseUri
+        AccessToken     = $AccessToken
+        TokenProvider   = $TokenProvider
+        OnUnauthorized  = if ($null -ne $OnUnauthorized) { $OnUnauthorized } else { $prevUnauthorized }
+        SetUtc          = (Get-Date).ToUniversalTime()
+        TraceEnabled    = $traceEnabled
+        TracePath       = $tracePath
+        Connected       = $connected
     }
 
     return $script:GCContext

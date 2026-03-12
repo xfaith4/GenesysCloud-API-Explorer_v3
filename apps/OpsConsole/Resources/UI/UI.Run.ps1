@@ -1968,40 +1968,119 @@ if ($runConversationReportButton) {
 
             $headers = @{ "Content-Type" = "application/json"; "Authorization" = "Bearer $token" }
 
-            Set-ConvReportUiState -State 'Loading' -StatusText "Fetching report... [Correlation ID: $correlationId]" -ProgressPercent 0 -ProgressLabel "Initializing..." -ExportEnabled $false
-            if ($conversationReportEndpointLog) { $conversationReportEndpointLog.Text = "" }
-            Add-LogEntry "Generating conversation report for: $convId [Correlation ID: $correlationId]"
+            # Capture all inputs and resources before launching background task
+            $capturedConvId        = $convId
+            $capturedHeaders       = $headers
+            $capturedBaseUrl       = $ApiBaseUrl
+            $capturedCorrelationId = $correlationId
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedConvReportBody = ${function:Get-ConversationReport}.ToString()
 
-            try {
-                $progressCallback = {
-                    param($PercentComplete, $Status, $EndpointName, $IsStarting, $IsSuccess, $IsOptional)
-                    if ($conversationReportProgressBar) { $conversationReportProgressBar.Value = $PercentComplete }
-                    if ($conversationReportProgressText) { $conversationReportProgressText.Text = $Status }
-                    if ($conversationReportEndpointLog) {
-                        $timestamp = (Get-Date).ToString("HH:mm:ss")
-                        $logLine = if ($IsStarting) { "[$timestamp] Querying: $EndpointName..." } elseif ($IsSuccess) { "[$timestamp] $([char]0x2713) $EndpointName - Retrieved successfully" } elseif ($IsOptional) { "[$timestamp] [WARN] $EndpointName - Optional, not available" } else { "[$timestamp] $([char]0x2717) $EndpointName - Failed" }
-                        $conversationReportEndpointLog.AppendText("$logLine`r`n")
-                        $conversationReportEndpointLog.ScrollToEnd()
+            # Thread-safe queue: background thread enqueues progress events;
+            # OnTick callback drains them on the UI thread (DEF-001 / no UI freeze).
+            $progressQueue = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    Set-ConvReportUiState -State 'Loading' `
+                        -StatusText "Fetching report... [Correlation ID: $capturedCorrelationId]" `
+                        -ProgressPercent 0 -ProgressLabel "Initializing..." -ExportEnabled $false
+                    if ($conversationReportEndpointLog) { $conversationReportEndpointLog.Text = "" }
+                    Add-LogEntry "Generating conversation report for: $capturedConvId [Correlation ID: $capturedCorrelationId]"
+                } `
+                -WorkParams @{
+                    ConvId          = $capturedConvId
+                    Headers         = $capturedHeaders
+                    BaseUrl         = $capturedBaseUrl
+                    ModuleManifest  = $capturedModuleManifest
+                    ProgressQueue   = $progressQueue
+                    ConvReportBody  = $capturedConvReportBody
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+
+                    # Reconstruct Get-ConversationReport in this runspace
+                    Invoke-Expression "function Get-ConversationReport { $ConvReportBody }"
+
+                    $progressCallback = {
+                        param($PercentComplete, $Status, $EndpointName, $IsStarting, $IsSuccess, $IsOptional)
+                        $ProgressQueue.Enqueue([pscustomobject]@{
+                            Pct      = $PercentComplete
+                            Status   = $Status
+                            Name     = $EndpointName
+                            Starting = [bool]$IsStarting
+                            Success  = [bool]$IsSuccess
+                            Optional = [bool]$IsOptional
+                        })
                     }
-                }
 
-                $script:LastConversationReport = Get-ConversationReport -ConversationId $convId -Headers $headers -BaseUrl $ApiBaseUrl -ProgressCallback $progressCallback
-                $script:LastConversationReportJson = $script:LastConversationReport | ConvertTo-Json -Depth 20
-                if ($conversationReportText) { $conversationReportText.Text = (Format-ConversationReportText -Report $script:LastConversationReport) }
+                    Get-ConversationReport `
+                        -ConversationId $ConvId `
+                        -Headers $Headers `
+                        -BaseUrl $BaseUrl `
+                        -ProgressCallback $progressCallback
+                } `
+                -OnTick {
+                    # Drain progress events on the UI thread
+                    $ev = $null
+                    while ($progressQueue.TryDequeue([ref]$ev)) {
+                        if ($conversationReportProgressBar) { $conversationReportProgressBar.Value = $ev.Pct }
+                        if ($conversationReportProgressText) { $conversationReportProgressText.Text = $ev.Status }
+                        if ($conversationReportEndpointLog) {
+                            $timestamp = (Get-Date).ToString("HH:mm:ss")
+                            $logLine = if ($ev.Starting) {
+                                "[$timestamp] Querying: $($ev.Name)..."
+                            }
+                            elseif ($ev.Success) {
+                                "[$timestamp] $([char]0x2713) $($ev.Name) - Retrieved successfully"
+                            }
+                            elseif ($ev.Optional) {
+                                "[$timestamp] [WARN] $($ev.Name) - Optional, not available"
+                            }
+                            else {
+                                "[$timestamp] $([char]0x2717) $($ev.Name) - Failed"
+                            }
+                            $conversationReportEndpointLog.AppendText("$logLine`r`n")
+                            $conversationReportEndpointLog.ScrollToEnd()
+                        }
+                    }
+                } `
+                -OnSuccess {
+                    param($output)
+                    $report = $output | Select-Object -Last 1
+                    $script:LastConversationReport = $report
+                    $script:LastConversationReportJson = $report | ConvertTo-Json -Depth 20
+                    if ($conversationReportText) {
+                        $conversationReportText.Text = (Format-ConversationReportText -Report $report)
+                    }
 
-                $errorCount = if ($script:LastConversationReport.Errors) { $script:LastConversationReport.Errors.Count } else { 0 }
-                if ($errorCount -gt 0) {
-                    Set-ConvReportUiState -State 'Partial' -ExportEnabled $true -StatusText "Report generated with $errorCount error(s). [Correlation ID: $correlationId]" -ProgressPercent 100 -ProgressLabel "Complete" -WarningText "Report completed with partial data. [Correlation ID: $correlationId]"
-                    Add-LogEntry "Conversation report completed with $errorCount error(s). [Correlation ID: $correlationId]"
-                } else {
-                    Set-ConvReportUiState -State 'Complete' -ExportEnabled $true -StatusText "Report generated successfully. [Correlation ID: $correlationId]" -ProgressPercent 100 -ProgressLabel "Complete"
-                    Add-LogEntry "Conversation report generated successfully. [Correlation ID: $correlationId]"
+                    $errorCount = if ($report -and $report.Errors) { $report.Errors.Count } else { 0 }
+                    if ($errorCount -gt 0) {
+                        Set-ConvReportUiState -State 'Partial' -ExportEnabled $true `
+                            -StatusText "Report generated with $errorCount error(s). [Correlation ID: $capturedCorrelationId]" `
+                            -ProgressPercent 100 -ProgressLabel "Complete" `
+                            -WarningText "Report completed with partial data. [Correlation ID: $capturedCorrelationId]"
+                        Add-LogEntry "Conversation report completed with $errorCount error(s). [Correlation ID: $capturedCorrelationId]"
+                    }
+                    else {
+                        Set-ConvReportUiState -State 'Complete' -ExportEnabled $true `
+                            -StatusText "Report generated successfully. [Correlation ID: $capturedCorrelationId]" `
+                            -ProgressPercent 100 -ProgressLabel "Complete"
+                        Add-LogEntry "Conversation report generated successfully. [Correlation ID: $capturedCorrelationId]"
+                    }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) {
+                        $err.Exception.Message
+                    }
+                    else { [string]$err }
+                    Set-ConvReportUiState -State 'Error' `
+                        -StatusText "Report failed. [Correlation ID: $capturedCorrelationId]" `
+                        -ErrorText "Report failed: $errMsg [Correlation ID: $capturedCorrelationId]" `
+                        -ExportEnabled $false
+                    Add-LogEntry "Conversation report failed: $errMsg [Correlation ID: $capturedCorrelationId]"
                 }
-            }
-            catch {
-                Set-ConvReportUiState -State 'Error' -StatusText "Report failed. [Correlation ID: $correlationId]" -ErrorText "Report failed: $($_.Exception.Message) [Correlation ID: $correlationId]" -ExportEnabled $false
-                Add-LogEntry "Conversation report failed: $($_.Exception.Message) [Correlation ID: $correlationId]"
-            }
         })
 }
 
@@ -2611,16 +2690,103 @@ function Get-DefaultAnalyticsIntervalLastMinutes {
 
 if ($runSelectedInsightPackButton) {
     $runSelectedInsightPackButton.Add_Click({
-            try {
-                $statusText.Text = "Running insight pack..."
-                Run-SelectedInsightPack -Compare:$false -DryRun:$false | Out-Null
-                $statusText.Text = "Insight pack completed."
+            # DEF-003: pre-flight guards
+            if (-not $insightPackCombo -or -not $insightPackCombo.SelectedItem) {
+                $statusText.Text = "Select an Insight Pack first."
+                Add-LogEntry "Insight pack blocked: no pack selected."
+                return
             }
-            catch {
-                $statusText.Text = "Insight pack failed."
-                Add-LogEntry "Insight pack failed: $($_.Exception.Message)"
-                [System.Windows.MessageBox]::Show("Insight pack failed: $($_.Exception.Message)", "Insight Pack Error", "OK", "Error")
+            $token = Get-ExplorerAccessToken
+            if (-not $token) {
+                $statusText.Text = "Provide an OAuth token before running an Insight Pack."
+                Add-LogEntry "Insight pack blocked: no OAuth token."
+                return
             }
+
+            # Capture all UI state before going to background thread (DEF-001)
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedBaseUrl        = $ApiBaseUrl
+            $capturedToken          = $token
+            $capturedPack           = $insightPackCombo.SelectedItem
+            $capturedPackPath       = $capturedPack.FullPath
+            if (-not (Test-Path -LiteralPath $capturedPackPath -ErrorAction SilentlyContinue)) {
+                $capturedPackPath = Get-InsightPackPath -FileName $capturedPack.FileName
+            }
+            $capturedPackParams = Get-InsightPackParameterValues
+            foreach ($k in @('startDate', 'endDate')) {
+                try {
+                    if (-not $capturedPackParams.ContainsKey($k)) { continue }
+                    $raw = $capturedPackParams[$k]
+                    if ([string]::IsNullOrWhiteSpace([string]$raw)) { continue }
+                    $dto = [datetimeoffset]::Parse([string]$raw, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AssumeUniversal)
+                    $capturedPackParams[$k] = $dto.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+                }
+                catch { }
+            }
+            $capturedUseCache     = if ($useInsightCacheCheckbox) { [bool]$useInsightCacheCheckbox.IsChecked } else { $false }
+            $capturedStrict       = if ($strictInsightValidationCheckbox) { [bool]$strictInsightValidationCheckbox.IsChecked } else { $false }
+            $capturedCacheTtl     = 60
+            if ($insightCacheTtlInput -and -not [string]::IsNullOrWhiteSpace($insightCacheTtlInput.Text)) {
+                try { $capturedCacheTtl = [int]$insightCacheTtlInput.Text.Trim() } catch { }
+            }
+            if ($capturedCacheTtl -lt 1) { $capturedCacheTtl = 1 }
+            $capturedCacheDir = Join-Path -Path $UserProfileBase -ChildPath "GenesysApiExplorerCache\\OpsInsights"
+            if (-not (Test-Path -LiteralPath $capturedCacheDir -ErrorAction SilentlyContinue)) {
+                New-Item -ItemType Directory -Path $capturedCacheDir -Force -ErrorAction SilentlyContinue | Out-Null
+            }
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    $statusText.Text = "Running insight pack..."
+                    if ($runSelectedInsightPackButton) { $runSelectedInsightPackButton.IsEnabled = $false }
+                    if ($dryRunSelectedInsightPackButton) { $dryRunSelectedInsightPackButton.IsEnabled = $false }
+                    if ($compareSelectedInsightPackButton) { $compareSelectedInsightPackButton.IsEnabled = $false }
+                } `
+                -WorkParams @{
+                    ModuleManifest = $capturedModuleManifest
+                    BaseUrl        = $capturedBaseUrl
+                    Token          = $capturedToken
+                    PackPath       = $capturedPackPath
+                    PackParams     = $capturedPackParams
+                    UseCache       = $capturedUseCache
+                    StrictValidate = $capturedStrict
+                    CacheTtl       = $capturedCacheTtl
+                    CacheDir       = $capturedCacheDir
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                    Set-GCContext -ApiBaseUri $BaseUrl -AccessToken $Token | Out-Null
+                    if ($UseCache) {
+                        Invoke-GCInsightPack -PackPath $PackPath -Parameters $PackParams `
+                            -UseCache -CacheTtlMinutes $CacheTtl -CacheDirectory $CacheDir `
+                            -StrictValidation:$StrictValidate
+                    }
+                    else {
+                        Invoke-GCInsightPack -PackPath $PackPath -Parameters $PackParams `
+                            -StrictValidation:$StrictValidate
+                    }
+                } `
+                -OnSuccess {
+                    param($output)
+                    $result = $output | Select-Object -Last 1
+                    $script:LastInsightResult = $result
+                    Update-InsightPackUi -Result $result
+                    if ($exportInsightBriefingButton) { $exportInsightBriefingButton.IsEnabled = $true }
+                    $statusText.Text = "Insight pack completed."
+                    if ($runSelectedInsightPackButton) { $runSelectedInsightPackButton.IsEnabled = $true }
+                    if ($dryRunSelectedInsightPackButton) { $dryRunSelectedInsightPackButton.IsEnabled = $true }
+                    if ($compareSelectedInsightPackButton) { $compareSelectedInsightPackButton.IsEnabled = $true }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $statusText.Text = "Insight pack failed."
+                    Add-LogEntry "Insight pack failed: $errMsg"
+                    [System.Windows.MessageBox]::Show("Insight pack failed: $errMsg", "Insight Pack Error", "OK", "Error")
+                    if ($runSelectedInsightPackButton) { $runSelectedInsightPackButton.IsEnabled = $true }
+                    if ($dryRunSelectedInsightPackButton) { $dryRunSelectedInsightPackButton.IsEnabled = $true }
+                    if ($compareSelectedInsightPackButton) { $compareSelectedInsightPackButton.IsEnabled = $true }
+                }
         })
 }
 
@@ -2641,44 +2807,77 @@ if ($compareSelectedInsightPackButton) {
 
 if ($runQueueWaitReportButton) {
     $runQueueWaitReportButton.Add_Click({
-            try {
-                $qid = if ($queueWaitQueueIdInput) { [string]$queueWaitQueueIdInput.Text } else { '' }
-                $qid = $qid.Trim()
-                if ([string]::IsNullOrWhiteSpace($qid)) {
-                    [System.Windows.MessageBox]::Show("Queue ID is required.", "Queue Wait Coverage", "OK", "Warning") | Out-Null
-                    return
-                }
-
-                $intervalText = if ($queueWaitIntervalInput) { [string]$queueWaitIntervalInput.Text } else { '' }
-                $intervalText = $intervalText.Trim()
-                if ([string]::IsNullOrWhiteSpace($intervalText)) {
-                    $intervalText = Get-DefaultAnalyticsIntervalLastMinutes -Minutes 30
-                    if ($queueWaitIntervalInput) { $queueWaitIntervalInput.Text = $intervalText }
-                }
-
-                if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Running queue wait coverage report..." }
-                $statusText.Text = "Running queue wait coverage report..."
-
-                $script:QueueWaitResults.Clear()
-                if ($queueWaitDetailsText) { $queueWaitDetailsText.Text = '' }
-
-                Ensure-OpsInsightsModuleLoaded
-                Ensure-OpsInsightsContext
-                $rows = @(Get-GCQueueWaitCoverage -QueueId $qid -Interval $intervalText)
-                foreach ($r in $rows) { $script:QueueWaitResults.Add($r) | Out-Null }
-
-                $msg = "Queue wait coverage complete. Conversations=$($rows.Count)."
-                if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = $msg }
-                $statusText.Text = $msg
-                Add-LogEntry $msg
+            # DEF-003: pre-flight guards
+            $qid = if ($queueWaitQueueIdInput) { [string]$queueWaitQueueIdInput.Text } else { '' }
+            $qid = $qid.Trim()
+            if ([string]::IsNullOrWhiteSpace($qid)) {
+                if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Queue ID is required." }
+                $statusText.Text = "Queue ID is required."
+                Add-LogEntry "Queue wait report blocked: no Queue ID."
+                return
             }
-            catch {
-                $statusText.Text = "Queue wait coverage failed."
-                $err = $_.Exception.Message
-                if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Failed: $err" }
-                Add-LogEntry "Queue wait coverage failed: $err"
-                [System.Windows.MessageBox]::Show("Queue wait coverage failed: $err", "Queue Wait Coverage", "OK", "Error") | Out-Null
+
+            $token = Get-ExplorerAccessToken
+            if (-not $token) {
+                if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Provide an OAuth token first." }
+                $statusText.Text = "Provide an OAuth token first."
+                Add-LogEntry "Queue wait report blocked: no OAuth token."
+                return
             }
+
+            $intervalText = if ($queueWaitIntervalInput) { [string]$queueWaitIntervalInput.Text } else { '' }
+            $intervalText = $intervalText.Trim()
+            if ([string]::IsNullOrWhiteSpace($intervalText)) {
+                $intervalText = Get-DefaultAnalyticsIntervalLastMinutes -Minutes 30
+                if ($queueWaitIntervalInput) { $queueWaitIntervalInput.Text = $intervalText }
+            }
+
+            # Capture inputs before background task (DEF-001)
+            $capturedQid            = $qid
+            $capturedInterval       = $intervalText
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedBaseUrl        = $ApiBaseUrl
+            $capturedToken          = $token
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Running queue wait coverage report..." }
+                    $statusText.Text = "Running queue wait coverage report..."
+                    $script:QueueWaitResults.Clear()
+                    if ($queueWaitDetailsText) { $queueWaitDetailsText.Text = '' }
+                    if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $false }
+                } `
+                -WorkParams @{
+                    QueueId        = $capturedQid
+                    Interval       = $capturedInterval
+                    ModuleManifest = $capturedModuleManifest
+                    BaseUrl        = $capturedBaseUrl
+                    Token          = $capturedToken
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                    Set-GCContext -ApiBaseUri $BaseUrl -AccessToken $Token | Out-Null
+                    Get-GCQueueWaitCoverage -QueueId $QueueId -Interval $Interval
+                } `
+                -OnSuccess {
+                    param($output)
+                    $rows = @($output)
+                    foreach ($r in $rows) { $script:QueueWaitResults.Add($r) | Out-Null }
+                    $msg = "Queue wait coverage complete. Conversations=$($rows.Count)."
+                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = $msg }
+                    $statusText.Text = $msg
+                    Add-LogEntry $msg
+                    if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $true }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $statusText.Text = "Queue wait coverage failed."
+                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Failed: $errMsg" }
+                    Add-LogEntry "Queue wait coverage failed: $errMsg"
+                    [System.Windows.MessageBox]::Show("Queue wait coverage failed: $errMsg", "Queue Wait Coverage", "OK", "Error") | Out-Null
+                    if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $true }
+                }
         })
 }
 
@@ -3028,47 +3227,68 @@ if ($runOperationalEventsButton) {
                 return
             }
 
-            try {
-                Ensure-OpsInsightsContext
-            }
-            catch {
-                $operationalEventsStatusText.Text = "Unable to establish auth context: $($_.Exception.Message)"
-                return
-            }
-
             $interval = "{0}/{1}" -f ((Get-Date).AddMinutes(-30).ToUniversalTime().ToString("o")), ((Get-Date).ToUniversalTime().ToString("o"))
             $filters = @()
             foreach ($id in $ids) {
-                $filters += @{
-                    name  = 'eventDefinitionId'
-                    value = $id
-                }
+                $filters += @{ name = 'eventDefinitionId'; value = $id }
             }
 
-            try {
-                $operationalEventsStatusText.Text = "Querying operational events..."
-                $script:OperationalEvents.Clear()
-                $script:OperationalEventsRaw.Clear()
-                $result = Invoke-GCAuditQuery -Interval $interval -Filters $filters -MaxResults 400
-                foreach ($entry in @($result.Entities)) {
-                    $timestamp = if ($entry.Timestamp) { [DateTime]::Parse($entry.Timestamp).ToString("yyyy-MM-dd HH:mm:ss") } elseif ($entry.timestamp) { [DateTime]::Parse($entry.timestamp).ToString("yyyy-MM-dd HH:mm:ss") } else { (Get-Date).ToString("yyyy-MM-dd HH:mm:ss") }
-                    $operationalEntry = [pscustomobject]@{
-                        Timestamp         = $timestamp
-                        EventDefinitionId = $entry.eventDefinitionId
-                        Severity          = $entry.severity
-                        EntityId          = $entry.entityId
-                        Message           = if ($entry.message) { $entry.message } else { ($entry | ConvertTo-Json -Depth 3) }
+            # Capture inputs before background task (DEF-001)
+            $capturedInterval       = $interval
+            $capturedFilters        = $filters
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedBaseUrl        = $ApiBaseUrl
+            $capturedToken          = $token
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    $operationalEventsStatusText.Text = "Querying operational events..."
+                    $script:OperationalEvents.Clear()
+                    $script:OperationalEventsRaw.Clear()
+                    if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $false }
+                } `
+                -WorkParams @{
+                    Interval       = $capturedInterval
+                    Filters        = $capturedFilters
+                    ModuleManifest = $capturedModuleManifest
+                    BaseUrl        = $capturedBaseUrl
+                    Token          = $capturedToken
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                    Set-GCContext -ApiBaseUri $BaseUrl -AccessToken $Token | Out-Null
+                    Invoke-GCAuditQuery -Interval $Interval -Filters $Filters -MaxResults 400
+                } `
+                -OnSuccess {
+                    param($output)
+                    $result = $output | Select-Object -Last 1
+                    foreach ($entry in @($result.Entities)) {
+                        $ts = if ($entry.Timestamp) {
+                            [DateTime]::Parse($entry.Timestamp).ToString("yyyy-MM-dd HH:mm:ss")
+                        }
+                        elseif ($entry.timestamp) {
+                            [DateTime]::Parse($entry.timestamp).ToString("yyyy-MM-dd HH:mm:ss")
+                        }
+                        else { (Get-Date).ToString("yyyy-MM-dd HH:mm:ss") }
+                        $script:OperationalEvents.Add([pscustomobject]@{
+                            Timestamp         = $ts
+                            EventDefinitionId = $entry.eventDefinitionId
+                            Severity          = $entry.severity
+                            EntityId          = $entry.entityId
+                            Message           = if ($entry.message) { $entry.message } else { ($entry | ConvertTo-Json -Depth 3) }
+                        }) | Out-Null
                     }
-                    $script:OperationalEvents.Add($operationalEntry) | Out-Null
+                    foreach ($entity in @($result.Entities)) { $script:OperationalEventsRaw.Add($entity) | Out-Null }
+                    $operationalEventsStatusText.Text = "Operational events loaded ($($script:OperationalEvents.Count))."
+                    if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $true }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $operationalEventsStatusText.Text = "Operational event query failed: $errMsg"
+                    Add-LogEntry "Operational event query failed: $errMsg"
+                    if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $true }
                 }
-                $script:OperationalEventsRaw.Clear()
-                foreach ($entity in @($result.Entities)) { $script:OperationalEventsRaw.Add($entity) | Out-Null }
-                $operationalEventsStatusText.Text = "Operational events loaded ($($script:OperationalEvents.Count))."
-            }
-            catch {
-                $operationalEventsStatusText.Text = "Operational event query failed: $($_.Exception.Message)"
-                Add-LogEntry "Operational event query failed: $($_.Exception.Message)"
-            }
         })
 }
 
@@ -3172,36 +3392,59 @@ if ($runAuditInvestigatorButton) {
                 return
             }
 
-            try {
-                Ensure-OpsInsightsContext
-            }
-            catch {
-                $auditStatusText.Text = "Unable to set auth context: $($_.Exception.Message)"
-                return
-            }
-
             $service = if ($auditServiceInput -and -not [string]::IsNullOrWhiteSpace($auditServiceInput.Text)) { $auditServiceInput.Text.Trim() } else { $null }
-            try {
-                $auditStatusText.Text = "Querying audit events..."
-                $script:AuditInvestigatorEvents.Clear()
-                $result = Invoke-GCAuditQuery -Interval $interval -ServiceName $service -Filters $filters -MaxResults 400
-                foreach ($entry in @($result.Entities)) {
-                    $timestamp = if ($entry.timestamp) { $entry.timestamp } elseif ($entry.Timestamp) { $entry.Timestamp } else { (Get-Date).ToString("o") }
-                    $script:AuditInvestigatorEvents.Add([pscustomobject]@{
-                            Timestamp = [DateTime]::Parse($timestamp).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                            Actor     = if ($entry.userId) { $entry.userId } elseif ($entry.actorId) { $entry.actorId } else { '(unknown)' }
-                            Service   = if ($entry.service) { $entry.service } else { '(n/a)' }
-                            Action    = if ($entry.action) { $entry.action } else { if ($entry.Name) { $entry.Name } else { '(unknown)' } }
-                            EntityId  = if ($entry.entityId) { $entry.entityId } else { '' }
-                        }) | Out-Null
+
+            # Capture inputs before background task (DEF-001)
+            $capturedInterval       = $interval
+            $capturedFilters        = $filters
+            $capturedService        = $service
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedBaseUrl        = $ApiBaseUrl
+            $capturedToken          = $token
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    $auditStatusText.Text = "Querying audit events..."
+                    $script:AuditInvestigatorEvents.Clear()
+                    if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $false }
+                } `
+                -WorkParams @{
+                    Interval       = $capturedInterval
+                    Filters        = $capturedFilters
+                    ServiceName    = $capturedService
+                    ModuleManifest = $capturedModuleManifest
+                    BaseUrl        = $capturedBaseUrl
+                    Token          = $capturedToken
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                    Set-GCContext -ApiBaseUri $BaseUrl -AccessToken $Token | Out-Null
+                    Invoke-GCAuditQuery -Interval $Interval -ServiceName $ServiceName -Filters $Filters -MaxResults 400
+                } `
+                -OnSuccess {
+                    param($output)
+                    $result = $output | Select-Object -Last 1
+                    foreach ($entry in @($result.Entities)) {
+                        $ts = if ($entry.timestamp) { $entry.timestamp } elseif ($entry.Timestamp) { $entry.Timestamp } else { (Get-Date).ToString("o") }
+                        $script:AuditInvestigatorEvents.Add([pscustomobject]@{
+                                Timestamp = [DateTime]::Parse($ts).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                                Actor     = if ($entry.userId) { $entry.userId } elseif ($entry.actorId) { $entry.actorId } else { '(unknown)' }
+                                Service   = if ($entry.service) { $entry.service } else { '(n/a)' }
+                                Action    = if ($entry.action) { $entry.action } else { if ($entry.Name) { $entry.Name } else { '(unknown)' } }
+                                EntityId  = if ($entry.entityId) { $entry.entityId } else { '' }
+                            }) | Out-Null
+                    }
+                    $auditTimelineText.Text = Format-AuditTimelineText -Events @($script:AuditInvestigatorEvents)
+                    $auditStatusText.Text = "Audit query returned $($script:AuditInvestigatorEvents.Count) events."
+                    if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $true }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $auditStatusText.Text = "Audit query failed: $errMsg"
+                    Add-LogEntry "Audit query failed: $errMsg"
+                    if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $true }
                 }
-                $auditTimelineText.Text = Format-AuditTimelineText -Events @($script:AuditInvestigatorEvents)
-                $auditStatusText.Text = "Audit query returned $($script:AuditInvestigatorEvents.Count) events."
-            }
-            catch {
-                $auditStatusText.Text = "Audit query failed: $($_.Exception.Message)"
-                Add-LogEntry "Audit query failed: $($_.Exception.Message)"
-            }
         })
 }
 
@@ -3523,7 +3766,6 @@ if ($opsIngestIntervalCombo) {
 
 if ($runOpsConversationIngestButton) {
     $runOpsConversationIngestButton.Add_Click({
-            $opsIngestStatusText.Text = "Starting conversation ingest..."
             if (-not (Test-UserAllowed)) {
                 $opsIngestStatusText.Text = "Ingest blocked: user not allowed."
                 Add-LogEntry "Ingest blocked for user $($script:CurrentUser)"
@@ -3538,18 +3780,42 @@ if ($runOpsConversationIngestButton) {
             }
             $tokenPath = $null
             try { $tokenPath = Save-IngestToken -Token $tokenCheck } catch { $tokenPath = $null }
-            $intervalText = Get-IngestIntervalPreset -Index $opsIngestIntervalCombo.SelectedIndex
-            try {
-                $result = Invoke-GCConversationIngest -Interval $intervalText -AccessToken $tokenCheck
-                $msg = "Ingested $($result.RecordsWritten) conversations to $($result.StorePath)"
-                $opsIngestStatusText.Text = $msg
-                Add-LogEntry $msg
-                Refresh-OperationsDashboardData -StorePath $result.StorePath
-            }
-            catch {
-                $opsIngestStatusText.Text = "Ingest failed: $($_.Exception.Message)"
-                Add-LogEntry "Conversation ingest failed: $($_.Exception.Message)"
-            }
+
+            # Capture inputs before background task (DEF-001)
+            $capturedInterval       = Get-IngestIntervalPreset -Index $opsIngestIntervalCombo.SelectedIndex
+            $capturedModuleManifest = $script:OpsInsightsManifest
+            $capturedToken          = $tokenCheck
+
+            Invoke-UIBackgroundTask `
+                -OnStart {
+                    $opsIngestStatusText.Text = "Starting conversation ingest..."
+                    if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $false }
+                } `
+                -WorkParams @{
+                    Interval       = $capturedInterval
+                    ModuleManifest = $capturedModuleManifest
+                    Token          = $capturedToken
+                } `
+                -WorkScript {
+                    Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                    Invoke-GCConversationIngest -Interval $Interval -AccessToken $Token
+                } `
+                -OnSuccess {
+                    param($output)
+                    $result = $output | Select-Object -Last 1
+                    $msg = "Ingested $($result.RecordsWritten) conversations to $($result.StorePath)"
+                    $opsIngestStatusText.Text = $msg
+                    Add-LogEntry $msg
+                    Refresh-OperationsDashboardData -StorePath $result.StorePath
+                    if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $true }
+                } `
+                -OnError {
+                    param($err)
+                    $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $opsIngestStatusText.Text = "Ingest failed: $errMsg"
+                    Add-LogEntry "Conversation ingest failed: $errMsg"
+                    if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $true }
+                }
         })
 }
 
@@ -3584,6 +3850,13 @@ function Register-ConvoIngestScheduledTask {
 }
 
 if ($scheduleOpsConversationIngestButton) {
+    # DEF-004: Task Scheduler is Windows-only; disable gracefully on other platforms
+    $isWindows = ($IsWindows -eq $true) -or ($env:OS -eq 'Windows_NT')
+    if (-not $isWindows) {
+        $scheduleOpsConversationIngestButton.IsEnabled = $false
+        $scheduleOpsConversationIngestButton.ToolTip   = "Windows Task Scheduler is not available on this platform."
+    }
+
     $scheduleOpsConversationIngestButton.Add_Click({
             try {
                 if (-not (Test-UserAllowed)) {
@@ -4158,25 +4431,7 @@ $btnSubmit.Add_Click({
             $body = $bodyParams | ConvertTo-Json -Depth 10
         }
 
-        Add-LogEntry "Request $($selectedMethod.ToUpper()) $fullUrl"
-        $statusText.Text = "Sending request..."
-        $btnSubmit.IsEnabled = $false
-        if ($progressIndicator) {
-            $progressIndicator.Visibility = "Visible"
-        }
-
-        # Track request start time
-        $requestStartTime = Get-Date
-        Write-UxEvent -Name "api_call_start" -Properties @{
-            method    = $selectedMethod.ToUpper()
-            path      = $selectedPath
-            url       = $fullUrl
-            timestamp = $requestStartTime.ToString('o')
-        }
-        $hudRoute = if ($mainTabControl -and $mainTabControl.SelectedItem) { $mainTabControl.SelectedItem.Header } else { "unknown" }
-        Update-UxDebugHud -Route $hudRoute -Status "Sending" -LastEvent "api_call_start"
-
-        # Store parameters for history
+        # Store parameters for history (captured before background launch)
         $requestParams = @{}
         foreach ($param in $params) {
             $rinput = $paramInputs[$param.name]
@@ -4191,187 +4446,203 @@ $btnSubmit.Add_Click({
             }
         }
 
-        try {
-            $response = Invoke-GCRequest -Method $selectedMethod.ToUpper() -Uri $fullUrl -Headers $headers -Body $body -AsResponse
-            $rawContent = $response.Content
-            $formattedContent = $rawContent
-            try {
-                $json = $rawContent | ConvertFrom-Json -ErrorAction Stop
-                $formattedContent = $json | ConvertTo-Json -Depth 10
-            }
-            catch {
-                # Keep raw text if JSON parsing fails
-            }
+        Add-LogEntry "Request $($selectedMethod.ToUpper()) $fullUrl"
 
-            $script:LastResponseText = $formattedContent
-            $script:LastResponseRaw = $rawContent
-            $script:LastResponseFile = ""
-            $script:ResponseViewMode = "Formatted"
-            $responseBox.Text = "Status $($response.StatusCode):`r`n$formattedContent"
-            $btnSave.IsEnabled = $true
-            $btnSubmit.IsEnabled = $true
-            if ($toggleResponseViewButton) {
-                $toggleResponseViewButton.IsEnabled = $true
-            }
-            if ($progressIndicator) {
-                $progressIndicator.Visibility = "Collapsed"
-            }
-
-            # Calculate duration and update status
-            $requestDuration = ((Get-Date) - $requestStartTime).TotalMilliseconds
-
-            # Detect pagination in response
-            $hasPagination = $false
-            $paginationInfo = ""
-            if ($json) {
-                if ($json.cursor) {
-                    $hasPagination = $true
-                    $paginationInfo = " (Cursor-based pagination detected)"
-                }
-                elseif ($json.nextUri) {
-                    $hasPagination = $true
-                    $paginationInfo = " (Next page available via nextUri)"
-                }
-                elseif ($json.pageCount -and $json.pageNumber) {
-                    $hasPagination = $true
-                    $paginationInfo = " (Page $($json.pageNumber) of $($json.pageCount))"
-                }
-            }
-
-            $statusText.Text = "Last call succeeded ($($response.StatusCode)) - {0:N0} ms$paginationInfo" -f $requestDuration
-            Add-LogEntry ("Response: {0} returned {1} chars in {2:N0} ms.$paginationInfo" -f $response.StatusCode, $formattedContent.Length, $requestDuration)
-            Write-UxEvent -Name "api_call" -Properties @{
-                method     = $selectedMethod.ToUpper()
-                path       = $selectedPath
-                statusCode = [int]$response.StatusCode
-                durationMs = [math]::Round($requestDuration, 0)
-                pagination = $hasPagination
-                timestamp  = (Get-Date).ToString('o')
-            }
-            Update-UxDebugHud -Route $hudRoute -Status ("OK " + $response.StatusCode) -LastEvent "api_success"
-
-            # If pagination detected, log a note
-            if ($hasPagination) {
-                Add-LogEntry "Note: Response contains pagination. To fetch all pages, use Get-PaginatedResults function or the Jobs results fetcher for job endpoints."
-            }
-
-            # Add to request history
-            $historyEntry = [PSCustomObject]@{
-                Timestamp  = $requestStartTime.ToString("yyyy-MM-dd HH:mm:ss")
-                Method     = $selectedMethod.ToUpper()
-                Path       = $selectedPath
-                Group      = $groupCombo.SelectedItem
-                Status     = $response.StatusCode
-                Duration   = "{0:N0} ms" -f $requestDuration
-                Parameters = $requestParams
-            }
-            $script:RequestHistory.Insert(0, $historyEntry)
-            # Keep only last 50 requests
-            while ($script:RequestHistory.Count -gt 50) {
-                $script:RequestHistory.RemoveAt(50)
-            }
-
-            if ($selectedMethod -eq "post" -and $selectedPath -match "/jobs/?$" -and $json) {
-                $jobId = if ($json.id) { $json.id } elseif ($json.jobId) { $json.jobId } else { $null }
-                if ($jobId) {
-                    Start-JobPolling -Path $selectedPath -JobId $jobId -Headers $headers
-                }
-            }
+        # Track request start time
+        $requestStartTime = Get-Date
+        Write-UxEvent -Name "api_call_start" -Properties @{
+            method    = $selectedMethod.ToUpper()
+            path      = $selectedPath
+            url       = $fullUrl
+            timestamp = $requestStartTime.ToString('o')
         }
-        catch {
-            $errorMessage = $_.Exception.Message
-            $statusCode = ""
-            $errorResponseBody = ""
+        $hudRoute = if ($mainTabControl -and $mainTabControl.SelectedItem) { $mainTabControl.SelectedItem.Header } else { "unknown" }
+        Update-UxDebugHud -Route $hudRoute -Status "Sending" -LastEvent "api_call_start"
 
-            # Try to extract detailed error information from the HTTP response
-            if ($_.Exception.Response) {
-                $response = $_.Exception.Response
-                if ($response -is [System.Net.HttpWebResponse]) {
-                    $statusCode = "Status $($response.StatusCode) ($([int]$response.StatusCode)) - "
+        # Capture all required state before launching background task (DEF-001)
+        $capturedMethod         = $selectedMethod.ToUpper()
+        $capturedUrl            = $fullUrl
+        $capturedHeaders        = $headers
+        $capturedBody           = $body
+        $capturedSelectedPath   = $selectedPath
+        $capturedSelectedMethod = $selectedMethod
+        $capturedGroupItem      = $groupCombo.SelectedItem
+        $capturedRequestParams  = $requestParams
+        $capturedStartTime      = $requestStartTime
+        $capturedHudRoute       = $hudRoute
+        $capturedModuleManifest = $script:OpsInsightsManifest
+
+        Invoke-UIBackgroundTask `
+            -OnStart {
+                $statusText.Text = "Sending request..."
+                $btnSubmit.IsEnabled = $false
+                if ($progressIndicator) { $progressIndicator.Visibility = "Visible" }
+            } `
+            -WorkParams @{
+                Method         = $capturedMethod
+                Uri            = $capturedUrl
+                Headers        = $capturedHeaders
+                Body           = $capturedBody
+                ModuleManifest = $capturedModuleManifest
+            } `
+            -WorkScript {
+                Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
+                Invoke-GCRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body -AsResponse
+            } `
+            -OnSuccess {
+                param($output)
+                $response = $output | Select-Object -Last 1
+                $rawContent      = $response.Content
+                $formattedContent = $rawContent
+                $json = $null
+                try {
+                    $json = $rawContent | ConvertFrom-Json -ErrorAction Stop
+                    $formattedContent = $json | ConvertTo-Json -Depth 10
+                }
+                catch { }
+
+                $script:LastResponseText  = $formattedContent
+                $script:LastResponseRaw   = $rawContent
+                $script:LastResponseFile  = ""
+                $script:ResponseViewMode  = "Formatted"
+                $responseBox.Text = "Status $($response.StatusCode):`r`n$formattedContent"
+                $btnSave.IsEnabled = $true
+                $btnSubmit.IsEnabled = $true
+                if ($toggleResponseViewButton) { $toggleResponseViewButton.IsEnabled = $true }
+                if ($progressIndicator) { $progressIndicator.Visibility = "Collapsed" }
+
+                $requestDuration = ((Get-Date) - $capturedStartTime).TotalMilliseconds
+
+                # Detect pagination in response
+                $hasPagination  = $false
+                $paginationInfo = ""
+                if ($json) {
+                    if ($json.cursor) {
+                        $hasPagination  = $true
+                        $paginationInfo = " (Cursor-based pagination detected)"
+                    }
+                    elseif ($json.nextUri) {
+                        $hasPagination  = $true
+                        $paginationInfo = " (Next page available via nextUri)"
+                    }
+                    elseif ($json.pageCount -and $json.pageNumber) {
+                        $hasPagination  = $true
+                        $paginationInfo = " (Page $($json.pageNumber) of $($json.pageCount))"
+                    }
+                }
+
+                $statusText.Text = "Last call succeeded ($($response.StatusCode)) - {0:N0} ms$paginationInfo" -f $requestDuration
+                Add-LogEntry ("Response: {0} returned {1} chars in {2:N0} ms.$paginationInfo" -f $response.StatusCode, $formattedContent.Length, $requestDuration)
+                Write-UxEvent -Name "api_call" -Properties @{
+                    method     = $capturedSelectedMethod.ToUpper()
+                    path       = $capturedSelectedPath
+                    statusCode = [int]$response.StatusCode
+                    durationMs = [math]::Round($requestDuration, 0)
+                    pagination = $hasPagination
+                    timestamp  = (Get-Date).ToString('o')
+                }
+                Update-UxDebugHud -Route $capturedHudRoute -Status ("OK " + $response.StatusCode) -LastEvent "api_success"
+
+                if ($hasPagination) {
+                    Add-LogEntry "Note: Response contains pagination. To fetch all pages, use Get-PaginatedResults function or the Jobs results fetcher for job endpoints."
+                }
+
+                # Add to request history
+                $historyEntry = [PSCustomObject]@{
+                    Timestamp  = $capturedStartTime.ToString("yyyy-MM-dd HH:mm:ss")
+                    Method     = $capturedSelectedMethod.ToUpper()
+                    Path       = $capturedSelectedPath
+                    Group      = $capturedGroupItem
+                    Status     = $response.StatusCode
+                    Duration   = "{0:N0} ms" -f $requestDuration
+                    Parameters = $capturedRequestParams
+                }
+                $script:RequestHistory.Insert(0, $historyEntry)
+                while ($script:RequestHistory.Count -gt 50) { $script:RequestHistory.RemoveAt(50) }
+
+                if ($capturedSelectedMethod -eq "post" -and $capturedSelectedPath -match "/jobs/?$" -and $json) {
+                    $jobId = if ($json.id) { $json.id } elseif ($json.jobId) { $json.jobId } else { $null }
+                    if ($jobId) {
+                        Start-JobPolling -Path $capturedSelectedPath -JobId $jobId -Headers $capturedHeaders
+                    }
+                }
+            } `
+            -OnError {
+                param($errRecord)
+                $ex = if ($errRecord -is [System.Management.Automation.ErrorRecord]) { $errRecord.Exception } else { $null }
+                $errorMessage = if ($ex) { $ex.Message } else { [string]$errRecord }
+                $statusCode       = ""
+                $errorResponseBody = ""
+
+                if ($ex -and $ex.Response) {
+                    $resp = $ex.Response
+                    if ($resp -is [System.Net.HttpWebResponse]) {
+                        $statusCode = "Status $($resp.StatusCode) ($([int]$resp.StatusCode)) - "
+                        try {
+                            $responseStream = $resp.GetResponseStream()
+                            $reader = New-Object System.IO.StreamReader($responseStream)
+                            $errorResponseBody = $reader.ReadToEnd()
+                            $reader.Close()
+                            $responseStream.Close()
+                        }
+                        catch { }
+                    }
+                }
+
+                $displayMessage = "Error:`r`n$statusCode$errorMessage"
+                if ($errorResponseBody) {
                     try {
-                        $responseStream = $response.GetResponseStream()
-                        $reader = New-Object System.IO.StreamReader($responseStream)
-                        $errorResponseBody = $reader.ReadToEnd()
-                        $reader.Close()
-                        $responseStream.Close()
+                        $errorJson = $errorResponseBody | ConvertFrom-Json -ErrorAction Stop
+                        $displayMessage += "`r`n`r`nResponse Body:`r`n$($errorJson | ConvertTo-Json -Depth 5)"
                     }
                     catch {
-                        # Could not read response body
+                        $displayMessage += "`r`n`r`nResponse Body:`r`n$errorResponseBody"
                     }
                 }
-            }
 
-            # Build the display message
-            $displayMessage = "Error:`r`n$statusCode$errorMessage"
-            if ($errorResponseBody) {
-                # Try to format as JSON if possible
-                try {
-                    $errorJson = $errorResponseBody | ConvertFrom-Json -ErrorAction Stop
-                    $formattedError = $errorJson | ConvertTo-Json -Depth 5
-                    $displayMessage += "`r`n`r`nResponse Body:`r`n$formattedError"
-                }
-                catch {
-                    $displayMessage += "`r`n`r`nResponse Body:`r`n$errorResponseBody"
-                }
-            }
+                $responseBox.Text       = $displayMessage
+                $btnSave.IsEnabled      = $false
+                $btnSubmit.IsEnabled    = $true
+                if ($toggleResponseViewButton) { $toggleResponseViewButton.IsEnabled = $false }
+                if ($progressIndicator) { $progressIndicator.Visibility = "Collapsed" }
+                $statusText.Text        = "Request failed - see log."
+                $script:LastResponseRaw  = ""
+                $script:LastResponseFile = ""
 
-            $responseBox.Text = $displayMessage
-            $btnSave.IsEnabled = $false
-            $btnSubmit.IsEnabled = $true
-            if ($toggleResponseViewButton) {
-                $toggleResponseViewButton.IsEnabled = $false
-            }
-            if ($progressIndicator) {
-                $progressIndicator.Visibility = "Collapsed"
-            }
-            $statusText.Text = "Request failed - see log."
-            $script:LastResponseRaw = ""
-            $script:LastResponseFile = ""
-
-            # Add to request history
-            $requestDuration = ((Get-Date) - $requestStartTime).TotalMilliseconds
-            $statusForHistory = if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
-                [int]$_.Exception.Response.StatusCode
-            }
-            else {
-                "Error"
-            }
-            $historyEntry = [PSCustomObject]@{
-                Timestamp  = $requestStartTime.ToString("yyyy-MM-dd HH:mm:ss")
-                Method     = $selectedMethod.ToUpper()
-                Path       = $selectedPath
-                Group      = $groupCombo.SelectedItem
-                Status     = $statusForHistory
-                Duration   = "{0:N0} ms" -f $requestDuration
-                Parameters = $requestParams
-            }
-            $script:RequestHistory.Insert(0, $historyEntry)
-            # Keep only last 50 requests
-            while ($script:RequestHistory.Count -gt 50) {
-                $script:RequestHistory.RemoveAt(50)
-            }
-
-            # Log detailed error information to the transparency log
-            Add-LogEntry "Response error: $statusCode$errorMessage"
-            if ($errorResponseBody) {
-                # Truncate very long error responses for the log
-                $logBody = if ($errorResponseBody.Length -gt $script:LogMaxMessageLength) {
-                    $errorResponseBody.Substring(0, $script:LogMaxMessageLength) + "... (truncated)"
+                $requestDuration = ((Get-Date) - $capturedStartTime).TotalMilliseconds
+                $statusForHistory = if ($ex -and $ex.Response -and $ex.Response.StatusCode) {
+                    [int]$ex.Response.StatusCode
                 }
-                else {
-                    $errorResponseBody
+                else { "Error" }
+                $historyEntry = [PSCustomObject]@{
+                    Timestamp  = $capturedStartTime.ToString("yyyy-MM-dd HH:mm:ss")
+                    Method     = $capturedSelectedMethod.ToUpper()
+                    Path       = $capturedSelectedPath
+                    Group      = $capturedGroupItem
+                    Status     = $statusForHistory
+                    Duration   = "{0:N0} ms" -f $requestDuration
+                    Parameters = $capturedRequestParams
                 }
-                Add-LogEntry "Error response body: $logBody"
+                $script:RequestHistory.Insert(0, $historyEntry)
+                while ($script:RequestHistory.Count -gt 50) { $script:RequestHistory.RemoveAt(50) }
+
+                Add-LogEntry "Response error: $statusCode$errorMessage"
+                if ($errorResponseBody) {
+                    $logBody = if ($errorResponseBody.Length -gt $script:LogMaxMessageLength) {
+                        $errorResponseBody.Substring(0, $script:LogMaxMessageLength) + "... (truncated)"
+                    }
+                    else { $errorResponseBody }
+                    Add-LogEntry "Error response body: $logBody"
+                }
+                Write-UxEvent -Name "api_error" -Properties @{
+                    method     = $capturedSelectedMethod.ToUpper()
+                    path       = $capturedSelectedPath
+                    durationMs = [math]::Round(((Get-Date) - $capturedStartTime).TotalMilliseconds, 0)
+                    message    = $errorMessage
+                    status     = $statusCode
+                }
+                Update-UxDebugHud -Route $capturedHudRoute -Status "Error" -LastEvent "api_error"
             }
-            Write-UxEvent -Name "api_error" -Properties @{
-                method     = $selectedMethod.ToUpper()
-                path       = $selectedPath
-                durationMs = [math]::Round(((Get-Date) - $requestStartTime).TotalMilliseconds, 0)
-                message    = $errorMessage
-                status     = $statusCode
-            }
-            Update-UxDebugHud -Route $hudRoute -Status "Error" -LastEvent "api_error"
-        }
     })
 
 $btnSave.Add_Click({
