@@ -63,7 +63,8 @@ Describe 'GenesysCloud.NotificationsToolkit (exhaustive offline coverage)' -Tag 
         $script:CapturedWebRequests.Count | Should -Be 1
         $request = $script:CapturedWebRequests[0]
         $request.Method | Should -Be 'GET'
-        $request.Uri | Should -Be 'https://notifications.mypurecloud.com/api/v2/notifications/topics'
+        $request.Uri | Should -BeLike 'https://notifications.mypurecloud.com/api/v2/notifications/topics*'
+        $request.Uri | Should -Match 'pageSize=\d+'
     }
 
     It 'saves topics cache from parsed response entities' {

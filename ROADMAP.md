@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. Sprint 1 complete. Proceeding to Sprint 2.*
+*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Proceeding to Sprint 3.*
 
 ---
 
@@ -170,11 +170,15 @@ These must be fixed before any developer can run the test suite reliably.
 - [ ] Harden Conversation Report (tighten error handling, normalize exports).
 - [ ] Add investigation bundle snapshots.
 
-### Sprint 3 — Audit Investigator + Queue Health
+### Sprint 3 (Complete) — Audit Investigator + Queue Health
 
-- [ ] Harden Audit Investigator (filtered timeline, exportable evidence).
-- [ ] Harden Queue Health (summary to drilldowns, confidence markers).
-- [ ] Polish: DEF-005, DEF-006, DEF-008, DEF-009.
+- [x] Harden Audit Investigator (filtered timeline with live filter input, export buttons enabled only after results load).
+- [x] Harden Queue Health (ConfidenceLevel property added to `Get-GCQueueWaitCoverage` results; Confidence column in list;
+      drilldown panel shows confidence marker and explanation when a conversation is selected).
+- [x] Polish: DEF-005, DEF-006, DEF-008, DEF-009.
+- [x] Sprint 3 tests: 11 new tests in `Sprint3.Tests.ps1`
+      (DEF-008 pagination, ConfidenceLevel values, confidence logic unit tests).
+      Full suite: 86 pass, 1 skipped, 0 failed.
 
 ---
 

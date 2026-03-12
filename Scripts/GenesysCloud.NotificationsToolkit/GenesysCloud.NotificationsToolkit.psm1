@@ -37,12 +37,60 @@ function Get-GCNotificationTopics {
     [CmdletBinding()]
     param(
         [string]$BaseUri,
-        [string]$AccessToken
+        [string]$AccessToken,
+        [int]$PageSize = 100
     )
 
     $notificationsUri = Get-GCNotificationBaseUri -BaseUri $BaseUri
-    return Invoke-GCRequest -Method 'GET' -BaseUri $notificationsUri -AccessToken $AccessToken `
-        -Path '/api/v2/notifications/topics' -AsResponse
+    $allTopics = [System.Collections.Generic.List[object]]::new()
+    $pageNumber = 1
+    $lastStatusCode = 200
+
+    do {
+        $path = "/api/v2/notifications/topics?pageSize=$PageSize&pageNumber=$pageNumber"
+        $response = Invoke-GCRequest -Method 'GET' -BaseUri $notificationsUri -AccessToken $AccessToken `
+            -Path $path -AsResponse
+
+        if ($response.StatusCode) { $lastStatusCode = $response.StatusCode }
+
+        $payload = $response.Parsed
+        if (-not $payload -and $response.Content) {
+            try { $payload = $response.Content | ConvertFrom-Json -Depth 5 } catch { $payload = $null }
+        }
+
+        if (-not $payload) { break }
+
+        $pageTopics = @()
+        if ($payload.PSObject.Properties.Name -contains 'entities') {
+            $pageTopics = @($payload.entities)
+        }
+        elseif ($payload.PSObject.Properties.Name -contains 'topics') {
+            $pageTopics = @($payload.topics)
+        }
+        elseif ($payload -is [System.Collections.IEnumerable]) {
+            $pageTopics = @($payload)
+        }
+
+        foreach ($t in $pageTopics) { $allTopics.Add($t) | Out-Null }
+
+        # Check for more pages
+        $totalPages = 0
+        try {
+            if ($payload.PSObject.Properties.Name -contains 'pageCount') {
+                $totalPages = [int]$payload.pageCount
+            }
+        }
+        catch { $totalPages = 0 }
+
+        $pageNumber++
+    } while ($totalPages -gt 0 -and $pageNumber -le $totalPages)
+
+    $mergedPayload = [pscustomobject]@{ entities = @($allTopics) }
+    return [pscustomobject]@{
+        StatusCode = $lastStatusCode
+        Parsed     = $mergedPayload
+        Content    = ($mergedPayload | ConvertTo-Json -Depth 5)
+    }
 }
 
 function Save-GCNotificationTopicsCache {
