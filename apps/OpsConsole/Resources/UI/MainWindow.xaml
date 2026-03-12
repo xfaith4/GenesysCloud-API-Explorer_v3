@@ -277,7 +277,8 @@
           </Grid.RowDefinitions>
           <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0 0 0 6">
             <Button Name="ToggleResponseViewButton" Width="140" Height="30" Content="Toggle Raw/Formatted" Margin="0 0 10 0" IsEnabled="False"/>
-            <Button Name="InspectResponseButton" Width="140" Height="30" Content="Inspect Result"/>
+            <Button Name="InspectResponseButton" Width="140" Height="30" Content="Inspect Result" IsEnabled="False"
+                    ToolTip="Send an API request first to enable inspection." ToolTipService.ShowOnDisabled="True"/>
           </StackPanel>
           <TextBox Grid.Row="1" Name="ResponseText" TextWrapping="Wrap" AcceptsReturn="True"
                    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" IsReadOnly="True"
@@ -403,7 +404,8 @@
                   <TextBlock Text="TTL (min)" VerticalAlignment="Center" Margin="10 0 6 0" Foreground="SlateGray"/>
                   <TextBox Name="InsightCacheTtlInput" Width="60" Height="26" VerticalContentAlignment="Center" Text="60"
                            ToolTip="Cache time-to-live in minutes"/>
-                  <Button Name="ExportInsightBriefingButton" Width="130" Height="30" Content="Export Briefing" Margin="10 0 0 0" IsEnabled="False"/>
+                  <Button Name="ExportInsightBriefingButton" Width="130" Height="30" Content="Export Briefing" Margin="10 0 0 0" IsEnabled="False"
+                          ToolTip="Run an insight pack first to enable this export." ToolTipService.ShowOnDisabled="True"/>
                 </WrapPanel>
 
                 <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0 8 0 8">
@@ -768,8 +770,10 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal">
               <Button Name="SaveTemplateButton" Width="120" Height="30" Content="Save Template" ToolTip="Save current request as a template"/>
-              <Button Name="LoadTemplateButton" Width="120" Height="30" Content="Load Template" Margin="10 0 0 0" IsEnabled="False" ToolTip="Load selected template into the main form"/>
-              <Button Name="DeleteTemplateButton" Width="120" Height="30" Content="Delete Template" Margin="10 0 0 0" IsEnabled="False" ToolTip="Delete selected template"/>
+              <Button Name="LoadTemplateButton" Width="120" Height="30" Content="Load Template" Margin="10 0 0 0" IsEnabled="False"
+                      ToolTip="Select a template from the list above." ToolTipService.ShowOnDisabled="True"/>
+              <Button Name="DeleteTemplateButton" Width="120" Height="30" Content="Delete Template" Margin="10 0 0 0" IsEnabled="False"
+                      ToolTip="Select a template from the list above." ToolTipService.ShowOnDisabled="True"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
               <Button Name="ExportTemplatesButton" Width="140" Height="30" Content="Export Templates" ToolTip="Export all templates to JSON file"/>
@@ -873,6 +877,7 @@
                   <GridViewColumn Header="Eligible Agents" DisplayMemberBinding="{Binding EligibleAgentsSummary}" Width="220"/>
                   <GridViewColumn Header="RoutingStatus" DisplayMemberBinding="{Binding EligibleStatusSummary}" Width="220"/>
                   <GridViewColumn Header="NOT_RESPONDING" DisplayMemberBinding="{Binding NotRespondingCount}" Width="120"/>
+                  <GridViewColumn Header="Confidence" DisplayMemberBinding="{Binding ConfidenceLevel}" Width="100"/>
                 </GridView>
               </ListView.View>
             </ListView>
@@ -1077,12 +1082,19 @@
                 <TextBlock Text="User ID" FontWeight="Bold" VerticalAlignment="Center" Margin="0 0 8 0"/>
                 <TextBox Name="AuditUserInput" Width="220" Height="26"/>
               </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0 8 0 0">
+                <TextBlock Text="Filter:" FontWeight="Bold" VerticalAlignment="Center" Margin="0 0 8 0"/>
+                <TextBox Name="AuditFilterInput" Width="300" Height="26" VerticalContentAlignment="Center"
+                         ToolTip="Live filter by user, service, action, or entity"/>
+              </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1">
               <Button Name="RunAuditInvestigatorButton" Width="200" Height="32" Content="Run Audit Query"/>
               <StackPanel Orientation="Horizontal" Margin="0 8 0 0">
-                <Button Name="ExportAuditJsonButton" Width="140" Height="32" Content="Export Raw"/>
-                <Button Name="ExportAuditSummaryButton" Width="140" Height="32" Content="Export Summary" Margin="10 0 0 0"/>
+                <Button Name="ExportAuditJsonButton" Width="140" Height="32" Content="Export Raw" IsEnabled="False"
+                        ToolTip="Run an audit query first to enable export." ToolTipService.ShowOnDisabled="True"/>
+                <Button Name="ExportAuditSummaryButton" Width="140" Height="32" Content="Export Summary" Margin="10 0 0 0" IsEnabled="False"
+                        ToolTip="Run an audit query first to enable export." ToolTipService.ShowOnDisabled="True"/>
               </StackPanel>
               <TextBlock Name="AuditStatusText" Text="Awaiting input for audit investigation." Foreground="SlateGray" Margin="0 6 0 0" TextWrapping="Wrap"/>
             </StackPanel>

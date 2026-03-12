@@ -125,6 +125,20 @@ function Get-GCQueueWaitCoverage {
             ($statusCounts.Keys | Sort-Object | ForEach-Object { "$_=$($statusCounts[$_])" }) -join '; '
         }
 
+        # Confidence marker: how likely is this conversation to be served soon?
+        $confidenceLevel = if ($eligibleCount -eq 0) {
+            'No Coverage'
+        }
+        elseif ($notResponding -ge $eligibleCount) {
+            'Low'
+        }
+        elseif ($eligibleCount -gt 0 -and $notResponding -gt ($eligibleCount / 2)) {
+            'Medium'
+        }
+        else {
+            'High'
+        }
+
         $previewLimit = 5
         $eligibleSummary = if ($eligibleCount -eq 0) { '0' } elseif ($eligibleCount -le $previewLimit) { "${eligibleCount}: $($eligibleNames -join ', ')" } else { "${eligibleCount}: $($eligibleNames[0..($previewLimit - 1)] -join ', '), ..." }
 
@@ -138,6 +152,7 @@ function Get-GCQueueWaitCoverage {
             EligibleAgentsSummary = $eligibleSummary
             EligibleStatusSummary = $statusSummary
             NotRespondingCount    = $notResponding
+            ConfidenceLevel       = $confidenceLevel
         }
     }
 

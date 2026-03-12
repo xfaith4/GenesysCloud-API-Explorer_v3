@@ -103,6 +103,7 @@ $auditEndInput = $Window.FindName("AuditEndInput")
 $auditServiceInput = $Window.FindName("AuditServiceInput")
 $auditEntityInput = $Window.FindName("AuditEntityInput")
 $auditUserInput = $Window.FindName("AuditUserInput")
+$auditFilterInput = $Window.FindName("AuditFilterInput")
 $runAuditInvestigatorButton = $Window.FindName("RunAuditInvestigatorButton")
 $auditEventsList = $Window.FindName("AuditEventsList")
 $auditTimelineText = $Window.FindName("AuditTimelineText")
@@ -2238,7 +2239,24 @@ if ($queueWaitResultsList -and $queueWaitDetailsText) {
                 $lines.Add("ConversationId: $($selected.ConversationId)") | Out-Null
                 $lines.Add("WaitingSinceUtc: $($selected.WaitingSinceUtc)") | Out-Null
                 $lines.Add("RequiredSkills: $($selected.RequiredSkills)") | Out-Null
-                $lines.Add("EligibleAgents ($(@($selected.EligibleAgentNames).Count)):" ) | Out-Null
+
+                # Confidence marker drilldown
+                $confidence = if ($selected.ConfidenceLevel) { $selected.ConfidenceLevel } else { 'Unknown' }
+                $eligibleCount = @($selected.EligibleAgentNames).Count
+                $notResponding = if ($null -ne $selected.NotRespondingCount) { $selected.NotRespondingCount } else { 0 }
+                $confidenceExplanation = switch ($confidence) {
+                    'No Coverage' { "No eligible agents found for the required skills. This conversation cannot be served." }
+                    'Low'         { "All $eligibleCount eligible agent(s) are NOT_RESPONDING. Immediate attention required." }
+                    'Medium'      { "$notResponding of $eligibleCount eligible agent(s) are NOT_RESPONDING. Coverage is degraded." }
+                    'High'        { "$eligibleCount eligible agent(s) available; routing appears healthy." }
+                    default       { "Coverage status unknown." }
+                }
+                $lines.Add("") | Out-Null
+                $lines.Add("CONFIDENCE: $confidence") | Out-Null
+                $lines.Add("  $confidenceExplanation") | Out-Null
+                $lines.Add("") | Out-Null
+
+                $lines.Add("EligibleAgents ($eligibleCount):" ) | Out-Null
                 if ($selected.EligibleStatusSummary) { $lines.Add("Eligible RoutingStatus: $($selected.EligibleStatusSummary)") | Out-Null }
                 if ($null -ne $selected.NotRespondingCount) { $lines.Add("NOT_RESPONDING count: $($selected.NotRespondingCount)") | Out-Null }
                 foreach ($a in @($selected.EligibleAgents | Select-Object -First 50)) {
@@ -3362,7 +3380,27 @@ if ($exportOperationalEventsSummaryButton) {
 }
 
 if ($auditEventsList) {
-    $auditEventsList.ItemsSource = $script:AuditInvestigatorEvents
+    $script:AuditInvestigatorEventsView = [System.Windows.Data.CollectionViewSource]::GetDefaultView($script:AuditInvestigatorEvents)
+    $script:AuditInvestigatorEventsView.Filter = {
+        param($item)
+        if (-not $item) { return $false }
+        if ([string]::IsNullOrWhiteSpace($script:AuditFilterTextLower)) { return $true }
+        $t = $script:AuditFilterTextLower
+        return (($item.Actor    -and $item.Actor.ToLower().Contains($t))  -or
+                ($item.Service  -and $item.Service.ToLower().Contains($t)) -or
+                ($item.Action   -and $item.Action.ToLower().Contains($t))  -or
+                ($item.EntityId -and $item.EntityId.ToLower().Contains($t)))
+    }
+    $auditEventsList.ItemsSource = $script:AuditInvestigatorEventsView
+}
+
+if ($auditFilterInput) {
+    $auditFilterInput.Add_TextChanged({
+            $raw = if ($auditFilterInput.Text) { $auditFilterInput.Text.Trim() } else { '' }
+            $script:AuditFilterText = $raw
+            $script:AuditFilterTextLower = $raw.ToLower()
+            if ($script:AuditInvestigatorEventsView) { $script:AuditInvestigatorEventsView.Refresh() }
+        })
 }
 
 if ($runAuditInvestigatorButton) {
@@ -3407,6 +3445,8 @@ if ($runAuditInvestigatorButton) {
                 -OnStart {
                     $auditStatusText.Text = "Querying audit events..."
                     $script:AuditInvestigatorEvents.Clear()
+                    if ($exportAuditJsonButton) { $exportAuditJsonButton.IsEnabled = $false }
+                    if ($exportAuditSummaryButton) { $exportAuditSummaryButton.IsEnabled = $false }
                     if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $false }
                 } `
                 -WorkParams @{
@@ -3437,6 +3477,9 @@ if ($runAuditInvestigatorButton) {
                     }
                     $auditTimelineText.Text = Format-AuditTimelineText -Events @($script:AuditInvestigatorEvents)
                     $auditStatusText.Text = "Audit query returned $($script:AuditInvestigatorEvents.Count) events."
+                    $hasEvents = $script:AuditInvestigatorEvents.Count -gt 0
+                    if ($exportAuditJsonButton) { $exportAuditJsonButton.IsEnabled = $hasEvents }
+                    if ($exportAuditSummaryButton) { $exportAuditSummaryButton.IsEnabled = $hasEvents }
                     if ($runAuditInvestigatorButton) { $runAuditInvestigatorButton.IsEnabled = $true }
                 } `
                 -OnError {
@@ -4510,6 +4553,7 @@ $btnSubmit.Add_Click({
                 $btnSave.IsEnabled = $true
                 $btnSubmit.IsEnabled = $true
                 if ($toggleResponseViewButton) { $toggleResponseViewButton.IsEnabled = $true }
+                if ($inspectResponseButton) { $inspectResponseButton.IsEnabled = $true }
                 if ($progressIndicator) { $progressIndicator.Visibility = "Collapsed" }
 
                 $requestDuration = ((Get-Date) - $capturedStartTime).TotalMilliseconds
