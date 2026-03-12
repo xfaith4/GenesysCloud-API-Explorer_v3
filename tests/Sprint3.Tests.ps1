@@ -157,7 +157,7 @@ Describe 'Queue Health: ConfidenceLevel in Get-GCQueueWaitCoverage results' {
     }
 }
 
-Describe 'Audit Investigator: ConfidenceLevel logic unit tests' {
+Describe 'Queue Health: ConfidenceLevel logic unit tests' {
 
     It 'returns No Coverage when EligibleCount is 0' {
         $eligibleCount = 0; $notResponding = 0

@@ -5637,6 +5637,7 @@ $script:OperationalEventsRaw = New-Object System.Collections.ArrayList
 $script:OperationalEventsSummaryPath = ''
 $script:AuditInvestigatorEvents = [System.Collections.ObjectModel.ObservableCollection[object]]::new()
 $script:AuditFilterText = ''
+$script:AuditFilterTextLower = ''
 $script:AuditSummaryExportPath = ''
 $script:AuditLogEntries = New-Object System.Collections.ObjectModel.ObservableCollection[object]
 $script:OperationalEventsLiveSubscription = $null

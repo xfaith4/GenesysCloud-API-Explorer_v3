@@ -3384,19 +3384,21 @@ if ($auditEventsList) {
     $script:AuditInvestigatorEventsView.Filter = {
         param($item)
         if (-not $item) { return $false }
-        if ([string]::IsNullOrWhiteSpace($script:AuditFilterText)) { return $true }
-        $term = $script:AuditFilterText.ToLower()
-        return (($item.Actor    -and $item.Actor.ToLower().Contains($term))  -or
-                ($item.Service  -and $item.Service.ToLower().Contains($term)) -or
-                ($item.Action   -and $item.Action.ToLower().Contains($term))  -or
-                ($item.EntityId -and $item.EntityId.ToLower().Contains($term)))
+        if ([string]::IsNullOrWhiteSpace($script:AuditFilterTextLower)) { return $true }
+        $t = $script:AuditFilterTextLower
+        return (($item.Actor    -and $item.Actor.ToLower().Contains($t))  -or
+                ($item.Service  -and $item.Service.ToLower().Contains($t)) -or
+                ($item.Action   -and $item.Action.ToLower().Contains($t))  -or
+                ($item.EntityId -and $item.EntityId.ToLower().Contains($t)))
     }
     $auditEventsList.ItemsSource = $script:AuditInvestigatorEventsView
 }
 
 if ($auditFilterInput) {
     $auditFilterInput.Add_TextChanged({
-            $script:AuditFilterText = if ($auditFilterInput.Text) { $auditFilterInput.Text.Trim() } else { '' }
+            $raw = if ($auditFilterInput.Text) { $auditFilterInput.Text.Trim() } else { '' }
+            $script:AuditFilterText = $raw
+            $script:AuditFilterTextLower = $raw.ToLower()
             if ($script:AuditInvestigatorEventsView) { $script:AuditInvestigatorEventsView.Refresh() }
         })
 }
