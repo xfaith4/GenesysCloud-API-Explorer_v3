@@ -261,12 +261,33 @@ function Invoke-GCRequest {
                 Write-GCTraceLine -Message ("[Attempt {0}] Request failed for {1} {2} Status={3} Message={4}" -f $attempt, $Method, $Uri, $statusText, $errInfo.Message)
             }
 
-            # 429: honor Retry-After when present
-            if ($code -eq 429 -and $errInfo.Headers -and $errInfo.Headers['Retry-After']) {
-                $ra = 0
-                [int]::TryParse($errInfo.Headers['Retry-After'], [ref]$ra) | Out-Null
-                if ($ra -gt 0) { Start-Sleep -Seconds $ra }
-                else { Start-Sleep -Seconds ([Math]::Min(30, (2 * $attempt))) }
+            # 401: notify via context callback (auth expiry) then stop retrying
+            if ($code -eq 401) {
+                if ($script:GCContext -and
+                    $script:GCContext.PSObject.Properties.Name -contains 'OnUnauthorized' -and
+                    $script:GCContext.OnUnauthorized) {
+                    try { & $script:GCContext.OnUnauthorized } catch { }
+                }
+                if ($AsResponse) { throw }
+                $detail = ($errInfo | ConvertTo-Json -Depth 10)
+                throw "GC request failed (attempt $($attempt) of $($MaxAttempts)) for $($Method) $($Uri). Details: $($detail)"
+            }
+
+            # 429: always retry with backoff; honor Retry-After when present
+            if ($code -eq 429) {
+                # Exponential backoff: 2 s, 4 s, 8 s, … capped at 30 s
+                $retryDelay = [Math]::Max(2, [Math]::Min(30, [Math]::Pow(2, $attempt)))
+                if ($errInfo.Headers) {
+                    $raHeader = $null
+                    try { $raHeader = $errInfo.Headers['Retry-After'] } catch { }
+                    if ($raHeader) {
+                        $ra = 0
+                        if ([int]::TryParse($raHeader, [ref]$ra) -and $ra -gt 0) {
+                            $retryDelay = $ra
+                        }
+                    }
+                }
+                Start-Sleep -Seconds $retryDelay
                 continue
             }
 

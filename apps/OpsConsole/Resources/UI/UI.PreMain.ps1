@@ -5804,6 +5804,134 @@ function Load-OpsInsightsScripts {
     $script:OpsInsightsScriptsLoaded = $true
 }
 
+#region Background task helper (DEF-001)
+<#
+.SYNOPSIS
+    Runs a heavy scriptblock off the WPF UI thread using a dedicated runspace.
+.DESCRIPTION
+    Accepts a work scriptblock, an optional hashtable of variables to pass to it, and
+    success/error callbacks that are invoked back on the WPF dispatcher thread so UI
+    controls can be updated safely.  A DispatcherTimer polls for completion every 200 ms;
+    the UI thread remains fully responsive throughout.
+.PARAMETER WorkScript
+    Scriptblock executed on the background thread.  Receives no positional arguments.
+    Variables listed in WorkParams are injected into the runspace before execution.
+.PARAMETER WorkParams
+    Hashtable whose keys are set as runspace variables before WorkScript runs.
+.PARAMETER OnSuccess
+    Scriptblock called on the UI thread when WorkScript finishes without errors.
+    Receives the pipeline output of WorkScript as its first argument.
+.PARAMETER OnError
+    Scriptblock called on the UI thread when WorkScript throws or has stream errors.
+    Receives the error record as its first argument.
+.PARAMETER OnStart
+    Optional scriptblock called synchronously on the UI thread immediately before the
+    background runspace is started (e.g., to disable buttons and show a status message).
+.PARAMETER OnTick
+    Optional scriptblock called on each timer tick (on the UI thread) while the
+    background task is running.  Use to drain a progress queue, update a spinner, etc.
+#>
+function Invoke-UIBackgroundTask {
+    param(
+        [Parameter(Mandatory)]
+        [scriptblock]$WorkScript,
+
+        [Parameter()]
+        [hashtable]$WorkParams = @{},
+
+        [Parameter()]
+        [scriptblock]$OnSuccess,
+
+        [Parameter()]
+        [scriptblock]$OnError,
+
+        [Parameter()]
+        [scriptblock]$OnStart,
+
+        [Parameter()]
+        [scriptblock]$OnTick
+    )
+
+    # Run the optional pre-start callback on the UI thread (synchronous)
+    if ($OnStart) {
+        try { & $OnStart } catch { Write-Verbose "Invoke-UIBackgroundTask OnStart error: $($_.Exception.Message)" }
+    }
+
+    $rs = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace()
+    $rs.ApartmentState = 'STA'
+    $rs.ThreadOptions  = 'ReuseThread'
+    $rs.Open()
+    # Future enhancement: use a RunspacePool with a configurable MaxRunspaces limit
+    # to bound resource use when many operations are triggered in quick succession.
+
+    foreach ($key in $WorkParams.Keys) {
+        $rs.SessionStateProxy.SetVariable($key, $WorkParams[$key])
+    }
+
+    $ps = [System.Management.Automation.PowerShell]::Create()
+    $ps.Runspace = $rs
+    [void]$ps.AddScript($WorkScript)
+
+    $handle = $ps.BeginInvoke()
+
+    # Use a shared state container so the timer closure can reference the timer itself
+    # (needed because GetNewClosure captures values at closure-creation time)
+    $taskState = @{
+        Ps      = $ps
+        Rs      = $rs
+        Handle  = $handle
+        Success = $OnSuccess
+        Error   = $OnError
+        Tick    = $OnTick
+        Timer   = $null    # set below, after closure created
+    }
+
+    $timerTick = {
+        # Run optional per-tick callback (e.g., drain progress queue)
+        if ($taskState.Tick) {
+            try { & $taskState.Tick } catch { }
+        }
+
+        if (-not $taskState.Handle.IsCompleted) { return }
+
+        $taskState.Timer.Stop()
+
+        try {
+            if ($taskState.Ps.HadErrors -and $taskState.Ps.Streams.Error.Count -gt 0) {
+                $err = $taskState.Ps.Streams.Error[0]
+                if ($taskState.Error) {
+                    try { & $taskState.Error $err } catch { }
+                }
+            }
+            else {
+                $output = $taskState.Ps.EndInvoke($taskState.Handle)
+                if ($taskState.Success) {
+                    try { & $taskState.Success $output } catch { }
+                }
+            }
+        }
+        catch {
+            if ($taskState.Error) {
+                try { & $taskState.Error $_ } catch { }
+            }
+        }
+        finally {
+            try { $taskState.Ps.Dispose() } catch { }
+            try { $taskState.Rs.Dispose() } catch { }
+        }
+    }.GetNewClosure()
+
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [System.TimeSpan]::FromMilliseconds(200)
+    $timer.Add_Tick($timerTick)
+
+    # Assign timer into shared state AFTER closure creation (GetNewClosure captured
+    # the $taskState hashtable reference, not a copy, so this assignment is visible)
+    $taskState.Timer = $timer
+    $timer.Start()
+}
+#endregion Background task helper
+
 function Ensure-OpsInsightsModuleLoaded {
     param(
         [switch]$Force
@@ -5851,8 +5979,26 @@ function Ensure-OpsInsightsContext {
         throw "Please provide an OAuth token before running Insight Packs."
     }
 
+    # Callback invoked by Invoke-GCRequest when a 401 is received (DEF-010).
+    # Marshals the auth-expiry notification back to the WPF dispatcher thread.
+    $authExpiredCallback = {
+        try {
+            $script:TokenValidated = $false
+            if ($Window -and $Window.Dispatcher) {
+                $Window.Dispatcher.Invoke([Action]{
+                    Update-AuthUiState
+                    if ($tokenStatusText) {
+                        $tokenStatusText.Text = 'Token Expired'
+                        $tokenStatusText.Foreground = 'Red'
+                    }
+                }, [System.Windows.Threading.DispatcherPriority]::Background)
+            }
+        }
+        catch { }
+    }
+
     try {
-        Set-GCContext -ApiBaseUri $ApiBaseUrl -AccessToken ($token.Trim()) | Out-Null
+        Set-GCContext -ApiBaseUri $ApiBaseUrl -AccessToken ($token.Trim()) -OnUnauthorized $authExpiredCallback | Out-Null
     }
     catch {
         # Fallback to global token for older module behaviors
