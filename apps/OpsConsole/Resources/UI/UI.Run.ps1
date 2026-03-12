@@ -1974,7 +1974,7 @@ if ($runConversationReportButton) {
             $capturedBaseUrl       = $ApiBaseUrl
             $capturedCorrelationId = $correlationId
             $capturedModuleManifest = $script:OpsInsightsManifest
-            $capturedConvReportBody = ${function:Get-ConversationReport}.ToString()
+            $capturedConvReportScript = ${function:Get-ConversationReport}
 
             # Thread-safe queue: background thread enqueues progress events;
             # OnTick callback drains them on the UI thread (DEF-001 / no UI freeze).
@@ -1994,13 +1994,14 @@ if ($runConversationReportButton) {
                     BaseUrl         = $capturedBaseUrl
                     ModuleManifest  = $capturedModuleManifest
                     ProgressQueue   = $progressQueue
-                    ConvReportBody  = $capturedConvReportBody
+                    ConvReportScript = $capturedConvReportScript
                 } `
                 -WorkScript {
                     Import-Module -Name $ModuleManifest -Force -ErrorAction Stop
 
-                    # Reconstruct Get-ConversationReport in this runspace
-                    Invoke-Expression "function Get-ConversationReport { $ConvReportBody }"
+                    # Define Get-ConversationReport in this runspace from the captured scriptblock
+                    # (avoids Invoke-Expression / dynamic string evaluation)
+                    New-Item -Path 'Function:\Get-ConversationReport' -Value $ConvReportScript -Force | Out-Null
 
                     $progressCallback = {
                         param($PercentComplete, $Status, $EndpointName, $IsStarting, $IsSuccess, $IsOptional)

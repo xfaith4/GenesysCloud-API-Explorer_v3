@@ -5861,6 +5861,8 @@ function Invoke-UIBackgroundTask {
     $rs.ApartmentState = 'STA'
     $rs.ThreadOptions  = 'ReuseThread'
     $rs.Open()
+    # Future enhancement: use a RunspacePool with a configurable MaxRunspaces limit
+    # to bound resource use when many operations are triggered in quick succession.
 
     foreach ($key in $WorkParams.Keys) {
         $rs.SessionStateProxy.SetVariable($key, $WorkParams[$key])
@@ -5986,7 +5988,7 @@ function Ensure-OpsInsightsContext {
                 $Window.Dispatcher.Invoke([Action]{
                     Update-AuthUiState
                     if ($tokenStatusText) {
-                        $tokenStatusText.Text = 'Token expired'
+                        $tokenStatusText.Text = 'Token Expired'
                         $tokenStatusText.Foreground = 'Red'
                     }
                 }, [System.Windows.Threading.DispatcherPriority]::Background)

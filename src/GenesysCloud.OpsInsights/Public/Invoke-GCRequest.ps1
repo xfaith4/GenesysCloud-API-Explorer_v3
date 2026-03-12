@@ -275,7 +275,8 @@ function Invoke-GCRequest {
 
             # 429: always retry with backoff; honor Retry-After when present
             if ($code -eq 429) {
-                $retryDelay = [Math]::Min(30, [Math]::Pow(2, $attempt))
+                # Exponential backoff: 2 s, 4 s, 8 s, … capped at 30 s
+                $retryDelay = [Math]::Max(2, [Math]::Min(30, [Math]::Pow(2, $attempt)))
                 if ($errInfo.Headers) {
                     $raHeader = $null
                     try { $raHeader = $errInfo.Headers['Retry-After'] } catch { }
