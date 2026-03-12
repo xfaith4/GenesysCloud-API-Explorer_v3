@@ -70,6 +70,7 @@ $publicFunctions = @(
     'Invoke-GCRequest',
     'Invoke-GCConversationIngest',
     'Invoke-GCSmokeDrill',
+    'Invoke-GCAuditQuery',
     'New-GCSnapshot',
     'Save-GCSnapshot',
     'Set-GCContext',

@@ -360,7 +360,7 @@
           </StackPanel>
         </Grid>
       </TabItem>
-      <TabItem Header="Ops Insights" Name="OpsInsightsTab">
+      <TabItem Header="[Experimental] Ops Insights" Name="OpsInsightsTab">
       <Grid Margin="10">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
@@ -540,7 +540,7 @@
         </GroupBox>
       </Grid>
       </TabItem>
-      <TabItem Header="Ops Dashboard" Name="OpsDashboardTab">
+      <TabItem Header="[Experimental] Ops Dashboard" Name="OpsDashboardTab">
         <Grid Margin="10">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -690,7 +690,7 @@
           </Grid>
         </Grid>
       </TabItem>
-      <TabItem Header="Forensic Timeline" Name="ForensicTimelineTab">
+      <TabItem Header="[Experimental] Forensic Timeline" Name="ForensicTimelineTab">
         <Grid Margin="10">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -839,7 +839,7 @@
                    VerticalAlignment="Stretch" MinHeight="200"/>
 	        </Grid>
 	      </TabItem>
-      <TabItem Header="Queue Wait Coverage">
+      <TabItem Header="[Experimental] Queue Wait Coverage">
         <Grid Margin="10">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -887,7 +887,7 @@
           </Grid>
         </Grid>
       </TabItem>
-      <TabItem Header="Live Subscriptions" Name="LiveSubscriptionsTab">
+      <TabItem Header="[Experimental] Live Subscriptions" Name="LiveSubscriptionsTab">
         <Grid Margin="10">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -999,7 +999,7 @@
           </StackPanel>
         </Grid>
       </TabItem>
-      <TabItem Header="Operational Events">
+      <TabItem Header="[Experimental] Operational Events">
         <Grid Margin="10">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
