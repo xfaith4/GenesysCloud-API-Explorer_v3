@@ -1,0 +1,3 @@
+{"Type":"conversation.details","ConversationId":"conv-001","DivisionId":"div-A","QueueIds":["queue-1","queue-2"],"AgentIds":["agent-1"],"Content":{"conversationMetrics":{"averageMos":4.2},"conversationEndpoints":{}}}
+{"Type":"conversation.details","ConversationId":"conv-002","DivisionId":"div-A","QueueIds":["queue-1"],"AgentIds":["agent-2"],"Content":{"conversationMetrics":{"averageMos":2.8},"conversationEndpoints":{"webrtc":true}}}
+{"Type":"conversation.details","ConversationId":"conv-003","DivisionId":"div-B","QueueIds":["queue-2"],"AgentIds":["agent-1"],"Content":{"conversationMetrics":{},"conversationEndpoints":{}}}

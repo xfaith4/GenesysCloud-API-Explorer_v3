@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete.*
+*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete. Sprint 6 complete.*
 
 ---
 
@@ -11,9 +11,9 @@
 | UI Filter Builder (8 tests) | FIXED | Duck-typed mocks replace WPF types; passes on Linux/CI |
 | OpsConsole UI Contracts (XAML parse) | FIXED | Skipped on non-Windows (WPF-only) |
 | NotificationsToolkit Exhaustive (12 tests) | FIXED | Removed Mandatory param prompts that blocked CI |
-| Conversation Report | Partial | DEF-001 thread blocking resolved; report runs in background |
-| Audit Investigator | Partial | DEF-001 thread blocking resolved |
-| Queue Wait Coverage | Partial | DEF-001 thread blocking resolved |
+| Conversation Report | FIXED | Background thread, correlation IDs, telemetry, 16 offline tests (shape, content, guard rails, pagination) |
+| Audit Investigator | FIXED | Background thread, correlation IDs, telemetry, 10 offline tests |
+| Queue Wait Coverage | FIXED | Background thread, correlation IDs, telemetry, 6 offline tests + 20 Sprint 5 tests |
 | Authentication | Improved | DEF-010 401 detection added; DEF-007 token persistence deferred to Sprint 2 |
 | Invoke-GCRequest | Improved | DEF-002 429 retry + Retry-After support added |
 | Live Subscriptions | Experimental | DEF-008 pagination safety deferred to Sprint 3 |
@@ -220,9 +220,31 @@ These must be fixed before any developer can run the test suite reliably.
 - [x] Sprint 5 tests: 20 new tests (6 telemetry + 3 expiry guard + 2 GUID + 4 shape + 5 offline).
       Full suite: 135 pass, 1 skipped, 0 failed.
 
----
+### Sprint 6 (Complete) — Conversation Report Completion
 
-## Success Definition
+- [x] S6-001: Token expiry guard pattern unit tests for Conversation Report handler (matches Sprint 4/5 pattern;
+      tests in `Sprint6.Tests.ps1`): expiry fires when in past, does not fire when in future or null.
+- [x] S6-002: Conversation report telemetry event contract tests: `conversation_report_start` (with conversationId),
+      `conversation_report_complete` (with errorCount), `conversation_report_fail` (with errorCategory).
+      Events verified written to telemetry file via `Flush-UxTelemetryBuffer`.
+- [x] S6-003: `ConversationDetails.Offline.Tests.ps1` expanded from 1 → 16 tests:
+      result shape (conversations count, cursor value), ByInterval parameter set,
+      conversation content (conversationId, start/end, participants with participantId/purpose,
+      customer participant, MOS stats), guard rails (empty interval throws, cursor/PageSize accepted),
+      and cursor pagination contract (passes cursor to request body; omits cursor when not supplied).
+- [x] S6-004: `Sprint6.Tests.ps1` — 24 new tests covering:
+      telemetry event names (6), token expiry guard (3), correlation ID GUID contract (2),
+      `Get-GCConversationRollup` shape/logic (13: empty store, missing path, 3 sections,
+      section titles, rows accessibility, row properties, bucket count, conversation count,
+      WebRtcDisconnects, DegradedPct threshold, custom MosThreshold).
+- [x] S6-005: `ConversationRollup.store.jsonl` fixture added (3 records: 2 in div-A with MOS 4.2/2.8,
+      1 in div-B; div-A has 1 WebRTC disconnect; conv-002 MOS 2.8 is below default 3.5 threshold).
+- [x] Conversation Report elevated from `Partial` to `FIXED` in Current Status Summary.
+      Feature Maturity Table remains `Stable`.
+- [x] Sprint 6 tests: 24 new tests (6 telemetry + 3 expiry + 2 GUID + 13 rollup) + 15 expanded offline.
+      Full suite: 174 pass, 1 skipped, 0 failed.
+
+---
 
 The app succeeds when:
 
