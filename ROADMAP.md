@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete.*
+*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete.*
 
 ---
 
@@ -110,7 +110,7 @@ These must be fixed before any developer can run the test suite reliably.
 |---------|--------|--------|
 | Conversation Report | Stable | Primary workflow — hardened (background threading, correlation IDs, telemetry) |
 | Audit Investigator | Stable | Hardened (background threading, correlation IDs, telemetry, offline tests) |
-| Queue Health / Smoke | Experimental | Backend tests pass; UI label applied |
+| Queue Health / Smoke | Beta | Hardened (telemetry, expiry guard, correlation IDs, offline tests) |
 | Live Subscriptions | Experimental | Internal workflow; labelled |
 | Ops Dashboard | Experimental | Needs scope reduction; labelled |
 | Generic API Explorer | Utility | Secondary support surface |
@@ -201,6 +201,24 @@ These must be fixed before any developer can run the test suite reliably.
 - [x] `Invoke-GCAuditQuery` promoted to public API (added to `Export-ModuleMember` list).
 - [x] Sprint 4 tests: 29 new tests (11 StartupDiagnostics + 10 AuditInvestigator + 8 XAML label).
       Full suite: 115 pass, 1 skipped, 0 failed.
+
+### Sprint 5 (Complete) — Queue Health Hardening + Telemetry
+
+- [x] S5-001: Token expiry guard added to `RunQueueWaitReportButton` handler (matches pattern in
+      `runConversationReportButton` and `runAuditInvestigatorButton`; uses `$script:TokenExpiresAt`).
+- [x] S5-002: Correlation ID (`[guid]::NewGuid()`) + `Write-UxEvent` telemetry added to Queue Wait handler:
+      `queue_wait_start` (with queueId), `queue_wait_complete` (with conversationCount),
+      `queue_wait_fail` (with errorCategory). Log entries include `[Correlation ID: ...]` suffix.
+- [x] S5-003: `QueueWaitCoverage.Offline.Tests.ps1` expanded with 5 new shape/contract tests:
+      all-properties presence, WaitingSinceUtc UTC parse, EligibleAgentsSummary non-empty,
+      array return type, default-interval smoke test.
+- [x] S5-004: `Sprint5.Tests.ps1` — 20 new tests covering:
+      telemetry event name contract (queue_wait_start/complete/fail written + parsed from file),
+      token expiry guard pattern unit tests, correlation ID GUID format,
+      and Queue Health result shape stability.
+- [x] Queue Health / Smoke elevated from `Experimental` to `Beta` in Feature Maturity Table.
+- [x] Sprint 5 tests: 20 new tests (6 telemetry + 3 expiry guard + 2 GUID + 4 shape + 5 offline).
+      Full suite: 135 pass, 1 skipped, 0 failed.
 
 ---
 

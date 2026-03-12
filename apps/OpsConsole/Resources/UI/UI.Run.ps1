@@ -2847,13 +2847,22 @@ if ($compareSelectedInsightPackButton) {
 
 if ($runQueueWaitReportButton) {
     $runQueueWaitReportButton.Add_Click({
+            $correlationId = [guid]::NewGuid().ToString()
+
+            # S5-001: token expiry guard (matches Conversation Report / Audit Investigator pattern)
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Queue wait report blocked: session expired. [Correlation ID: $correlationId]"
+                Show-LoginWindow | Out-Null
+                return
+            }
+
             # DEF-003: pre-flight guards
             $qid = if ($queueWaitQueueIdInput) { [string]$queueWaitQueueIdInput.Text } else { '' }
             $qid = $qid.Trim()
             if ([string]::IsNullOrWhiteSpace($qid)) {
                 if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Queue ID is required." }
                 $statusText.Text = "Queue ID is required."
-                Add-LogEntry "Queue wait report blocked: no Queue ID."
+                Add-LogEntry "Queue wait report blocked: no Queue ID. [Correlation ID: $correlationId]"
                 return
             }
 
@@ -2861,7 +2870,7 @@ if ($runQueueWaitReportButton) {
             if (-not $token) {
                 if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Provide an OAuth token first." }
                 $statusText.Text = "Provide an OAuth token first."
-                Add-LogEntry "Queue wait report blocked: no OAuth token."
+                Add-LogEntry "Queue wait report blocked: no OAuth token. [Correlation ID: $correlationId]"
                 return
             }
 
@@ -2878,14 +2887,21 @@ if ($runQueueWaitReportButton) {
             $capturedModuleManifest = $script:OpsInsightsManifest
             $capturedBaseUrl        = $ApiBaseUrl
             $capturedToken          = $token
+            $capturedCorrelationId  = $correlationId
 
             Invoke-UIBackgroundTask `
                 -OnStart {
-                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Running queue wait coverage report..." }
+                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Running queue wait coverage report... [Correlation ID: $capturedCorrelationId]" }
                     $statusText.Text = "Running queue wait coverage report..."
                     $script:QueueWaitResults.Clear()
                     if ($queueWaitDetailsText) { $queueWaitDetailsText.Text = '' }
                     if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $false }
+                    Add-LogEntry "Queue wait coverage started for queue: $capturedQid [Correlation ID: $capturedCorrelationId]"
+                    # S5-002: telemetry
+                    Write-UxEvent -Name 'queue_wait_start' -Properties @{
+                        queueId       = $capturedQid
+                        correlationId = $capturedCorrelationId
+                    }
                 } `
                 -WorkParams @{
                     QueueId        = $capturedQid
@@ -2903,20 +2919,30 @@ if ($runQueueWaitReportButton) {
                     param($output)
                     $rows = @($output)
                     foreach ($r in $rows) { $script:QueueWaitResults.Add($r) | Out-Null }
-                    $msg = "Queue wait coverage complete. Conversations=$($rows.Count)."
+                    $msg = "Queue wait coverage complete. Conversations=$($rows.Count). [Correlation ID: $capturedCorrelationId]"
                     if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = $msg }
                     $statusText.Text = $msg
                     Add-LogEntry $msg
                     if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $true }
+                    # S5-002: telemetry
+                    Write-UxEvent -Name 'queue_wait_complete' -Properties @{
+                        correlationId     = $capturedCorrelationId
+                        conversationCount = $rows.Count
+                    }
                 } `
                 -OnError {
                     param($err)
                     $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
                     $statusText.Text = "Queue wait coverage failed."
-                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Failed: $errMsg" }
-                    Add-LogEntry "Queue wait coverage failed: $errMsg"
+                    if ($queueWaitReportStatus) { $queueWaitReportStatus.Text = "Failed: $errMsg [Correlation ID: $capturedCorrelationId]" }
+                    Add-LogEntry "Queue wait coverage failed: $errMsg [Correlation ID: $capturedCorrelationId]"
                     [System.Windows.MessageBox]::Show("Queue wait coverage failed: $errMsg", "Queue Wait Coverage", "OK", "Error") | Out-Null
                     if ($runQueueWaitReportButton) { $runQueueWaitReportButton.IsEnabled = $true }
+                    # S5-002: telemetry
+                    Write-UxEvent -Name 'queue_wait_fail' -Properties @{
+                        correlationId = $capturedCorrelationId
+                        errorCategory = $err.GetType().Name
+                    }
                 }
         })
 }
