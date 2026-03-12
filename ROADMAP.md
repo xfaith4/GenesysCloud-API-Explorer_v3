@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. This document tracks what is broken, what the repair priority is, and what has been fixed.*
+*Last updated: 2026-03-12. Sprint 1 complete. Proceeding to Sprint 2.*
 
 ---
 
@@ -11,12 +11,12 @@
 | UI Filter Builder (8 tests) | FIXED | Duck-typed mocks replace WPF types; passes on Linux/CI |
 | OpsConsole UI Contracts (XAML parse) | FIXED | Skipped on non-Windows (WPF-only) |
 | NotificationsToolkit Exhaustive (12 tests) | FIXED | Removed Mandatory param prompts that blocked CI |
-| Conversation Report | Partial | DEF-001 thread blocking, DEF-003 no input guard |
-| Audit Investigator | Partial | DEF-001 thread blocking, DEF-003 no input guard |
-| Queue Wait Coverage | Partial | DEF-001 thread blocking |
-| Authentication | Partial | DEF-007 no token persistence, DEF-010 stale auth state |
-| Invoke-GCRequest | Missing | DEF-002 no 429 retry |
-| Live Subscriptions | Experimental | DEF-008 no pagination safety |
+| Conversation Report | Partial | DEF-001 thread blocking resolved; report runs in background |
+| Audit Investigator | Partial | DEF-001 thread blocking resolved |
+| Queue Wait Coverage | Partial | DEF-001 thread blocking resolved |
+| Authentication | Improved | DEF-010 401 detection added; DEF-007 token persistence deferred to Sprint 2 |
+| Invoke-GCRequest | Improved | DEF-002 429 retry + Retry-After support added |
+| Live Subscriptions | Experimental | DEF-008 pagination safety deferred to Sprint 3 |
 | Generic API Explorer | Utility | Functional but secondary |
 
 ---
@@ -152,12 +152,16 @@ These must be fixed before any developer can run the test suite reliably.
 - [x] Fix OpsConsole UI contract tests on non-Windows.
 - [x] Fix NotificationsToolkit exhaustive test hang.
 
-### Sprint 1 — Foundation Stability
+### Sprint 1 (Complete) — Foundation Stability
 
-- [ ] DEF-002: Add 429 retry to `Invoke-GCRequest`.
-- [ ] DEF-003: Add input guards to Run handlers.
-- [ ] DEF-010: Detect 401 and update auth state mid-session.
-- [ ] DEF-004: OS guard for Task Scheduler button.
+- [x] DEF-002: Add 429 retry to `Invoke-GCRequest` (exponential backoff + Retry-After support).
+- [x] DEF-003: Add input guards to Run handlers (UUID validation, null-token, empty-ID).
+- [x] DEF-010: Detect 401 and update auth state mid-session via `OnUnauthorized` callback.
+- [x] DEF-004: OS guard for Task Scheduler button (disabled + tooltip on non-Windows).
+- [x] Sprint 1 tests hardened: 12 dedicated tests in `Sprint1.Stability.Tests.ps1`
+      covering real 429 retry paths (via CLR mock exception), Retry-After header honoring,
+      MaxAttempts exhaustion, UUID guard patterns, and token guard pattern.
+      Full suite: 73 pass, 1 skipped, 0 failed.
 
 ### Sprint 2 — Core Workflow Hardening
 
