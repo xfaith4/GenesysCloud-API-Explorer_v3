@@ -12,6 +12,10 @@ BeforeAll {
 
 Describe 'OpsConsole UI contracts' -Tag @('UI', 'Contract') {
     It 'parses main window xaml' {
+        if (-not $IsWindows) {
+            Set-ItResult -Skipped -Because 'WPF assemblies are only available on Windows'
+            return
+        }
         Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase, System.Xaml
         $raw = Get-Content -LiteralPath $script:XamlPath -Raw
         { [void][System.Windows.Markup.XamlReader]::Parse($raw) } | Should -Not -Throw
