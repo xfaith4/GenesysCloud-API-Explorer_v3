@@ -22,10 +22,7 @@ Describe 'OpsConsole UI contracts' -Tag @('UI', 'Contract') {
     }
 
     It 'contains every control referenced by UI.Run FindName calls' {
-        $optionalTargets = @(
-            # Existing runtime alias that may be conditionally introduced during XAML edits.
-            'ExportRedactedKpiButton'
-        )
+        $optionalTargets = @()
         $missing = @(
             $script:FindNameTargets |
                 Where-Object { $_ -notin $script:XamlNamedTargets } |

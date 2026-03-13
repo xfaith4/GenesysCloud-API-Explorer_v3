@@ -3678,6 +3678,10 @@ if ($exportDivisionQosButton) {
                 Add-LogEntry "Export blocked for user $($script:CurrentUser)"
                 return
             }
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Export Division QoS blocked: session expired."
+                return
+            }
             $tokenCheck = $null
             try { $tokenCheck = Get-ExplorerAccessToken } catch { $tokenCheck = $null }
             if (-not $tokenCheck) { return }
@@ -3689,6 +3693,10 @@ if ($exportWebRtcButton) {
     $exportWebRtcButton.Add_Click({
             if (-not (Test-UserAllowed)) {
                 Add-LogEntry "Export blocked for user $($script:CurrentUser)"
+                return
+            }
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Export WebRTC Review blocked: session expired."
                 return
             }
             $tokenCheck = $null
@@ -3704,6 +3712,10 @@ if ($exportDataActionButton) {
                 Add-LogEntry "Export blocked for user $($script:CurrentUser)"
                 return
             }
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Export DataAction Reliability blocked: session expired."
+                return
+            }
             $tokenCheck = $null
             try { $tokenCheck = Get-ExplorerAccessToken } catch { $tokenCheck = $null }
             if (-not $tokenCheck) { return }
@@ -3715,6 +3727,10 @@ if ($exportIncidentPacketButton) {
     $exportIncidentPacketButton.Add_Click({
             if (-not (Test-UserAllowed)) {
                 Add-LogEntry "Export blocked for user $($script:CurrentUser)"
+                return
+            }
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                Add-LogEntry "Export Incident Packet blocked: session expired."
                 return
             }
             $tokenCheck = $null
@@ -3884,6 +3900,13 @@ if ($runOpsConversationIngestButton) {
                 Add-LogEntry "Ingest blocked for user $($script:CurrentUser)"
                 return
             }
+            $ingestCorrelationId = [guid]::NewGuid().ToString()
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                $opsIngestStatusText.Text = "Ingest blocked: session expired. [Correlation ID: $ingestCorrelationId]"
+                Add-LogEntry "Ingest blocked: session expired. [Correlation ID: $ingestCorrelationId]"
+                Show-LoginWindow | Out-Null
+                return
+            }
             $tokenCheck = $null
             try { $tokenCheck = Get-ExplorerAccessToken } catch { $tokenCheck = $null }
             if (-not $tokenCheck) {
@@ -3898,11 +3921,16 @@ if ($runOpsConversationIngestButton) {
             $capturedInterval       = Get-IngestIntervalPreset -Index $opsIngestIntervalCombo.SelectedIndex
             $capturedModuleManifest = $script:OpsInsightsManifest
             $capturedToken          = $tokenCheck
+            $capturedIngestCorrId   = $ingestCorrelationId
 
             Invoke-UIBackgroundTask `
                 -OnStart {
-                    $opsIngestStatusText.Text = "Starting conversation ingest..."
+                    $opsIngestStatusText.Text = "Starting conversation ingest... [Correlation ID: $capturedIngestCorrId]"
                     if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $false }
+                    Write-UxEvent -Name 'ops_ingest_start' -Properties @{
+                        interval      = $capturedInterval
+                        correlationId = $capturedIngestCorrId
+                    }
                 } `
                 -WorkParams @{
                     Interval       = $capturedInterval
@@ -3918,15 +3946,24 @@ if ($runOpsConversationIngestButton) {
                     $result = $output | Select-Object -Last 1
                     $msg = "Ingested $($result.RecordsWritten) conversations to $($result.StorePath)"
                     $opsIngestStatusText.Text = $msg
-                    Add-LogEntry $msg
+                    Add-LogEntry "$msg [Correlation ID: $capturedIngestCorrId]"
+                    Write-UxEvent -Name 'ops_ingest_complete' -Properties @{
+                        correlationId  = $capturedIngestCorrId
+                        recordsWritten = $result.RecordsWritten
+                    }
                     Refresh-OperationsDashboardData -StorePath $result.StorePath
                     if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $true }
                 } `
                 -OnError {
                     param($err)
                     $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $errCategory = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.GetType().Name } else { 'RuntimeException' }
                     $opsIngestStatusText.Text = "Ingest failed: $errMsg"
-                    Add-LogEntry "Conversation ingest failed: $errMsg"
+                    Add-LogEntry "Conversation ingest failed: $errMsg [Correlation ID: $capturedIngestCorrId]"
+                    Write-UxEvent -Name 'ops_ingest_fail' -Properties @{
+                        correlationId = $capturedIngestCorrId
+                        errorCategory = $errCategory
+                    }
                     if ($runOpsConversationIngestButton) { $runOpsConversationIngestButton.IsEnabled = $true }
                 }
         })

@@ -634,6 +634,7 @@
             <Button Name="ExportWebRtcButton" Width="190" Height="32" Content="Export WebRTC Review" Margin="10 0 0 0"/>
             <Button Name="ExportDataActionButton" Width="190" Height="32" Content="Export DataAction Reliability" Margin="10 0 0 0"/>
             <Button Name="ExportIncidentPacketButton" Width="180" Height="32" Content="Export Incident Packet" Margin="10 0 0 0"/>
+            <Button Name="ExportRedactedKpiButton" Width="190" Height="32" Content="Export KPI Rollup" Margin="10 0 0 0" ToolTip="Export conversation KPI rollup (Division / Queue / Agent) to Excel"/>
           </StackPanel>
           <Grid Grid.Row="5">
             <Grid.RowDefinitions>
