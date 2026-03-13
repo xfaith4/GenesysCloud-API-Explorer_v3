@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-12. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete. Sprint 6 complete.*
+*Last updated: 2026-03-13. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete. Sprint 6 complete. Sprint 7 complete.*
 
 ---
 
@@ -243,6 +243,84 @@ These must be fixed before any developer can run the test suite reliably.
       Feature Maturity Table remains `Stable`.
 - [x] Sprint 6 tests: 24 new tests (6 telemetry + 3 expiry + 2 GUID + 13 rollup) + 15 expanded offline.
       Full suite: 174 pass, 1 skipped, 0 failed.
+
+### Sprint 7 (Complete) — Ingest Hardening + Sprint 6 Cliffhanger Fix
+
+- [x] S7-CLIFFHANGER: Added `ExportRedactedKpiButton` to `MainWindow.xaml` (line after `ExportIncidentPacketButton`).
+      Handler in `UI.Run.ps1` was fully implemented since Sprint 6 but XAML element was absent.
+      `Get-GCConversationRollup` is now reachable via the Ops Dashboard UI.
+      `ExportRedactedKpiButton` removed from `$optionalTargets` in `OpsConsole.UiContracts.Tests.ps1`.
+- [x] S7-001: Token expiry guard (`$script:TokenExpiresAt`) added to the 4 existing Ops Dashboard export
+      button handlers (`ExportDivisionQosButton`, `ExportWebRtcButton`, `ExportDataActionButton`,
+      `ExportIncidentPacketButton`) — consistent with pattern used in Conversation Report, Queue Wait,
+      Audit, and `ExportRedactedKpiButton` handlers.
+- [x] S7-002: Correlation ID (`[guid]::NewGuid()`) + `Write-UxEvent` telemetry added to
+      `runOpsConversationIngestButton` handler:
+      `ops_ingest_start` (with interval, correlationId),
+      `ops_ingest_complete` (with recordsWritten),
+      `ops_ingest_fail` (with errorCategory). Log entries include `[Correlation ID: ...]` suffix.
+      Token expiry guard also added to the ingest handler (matches pattern from Sprints 4–6).
+- [x] S7-003: `Sprint7.Tests.ps1` — 13 new tests covering:
+      XAML button presence (2), token expiry guard pattern (3), telemetry event names (3),
+      telemetry file writes with properties (3), correlation ID GUID format (2).
+      Full suite: 187 pass, 1 skipped, 0 failed.
+
+---
+
+## Operational Review Process
+
+This section defines recurring engineering-hygiene tasks to keep the repository in a consistently shippable state.
+
+### Review cadence
+
+| Cadence | Activity |
+|---------|----------|
+| Every sprint | Run `.\tools\Test.ps1 -Profile Fast` and confirm zero failures before merging |
+| Every sprint | Check ROADMAP for items marked complete — verify against code, not just checklist |
+| Every sprint | Search for TODO/FIXME/STUB/HACK/placeholder comments in `src/`, `apps/`, `tests/` |
+| Monthly | Run `.\tools\Test.ps1 -Profile Full` to exercise integration paths |
+| Monthly | Review `docs/` accuracy against current implementation |
+| Monthly | Audit Feature Maturity Table: promote `Beta` → `Stable` or demote if regressions found |
+| Quarterly | Review CI workflow for stale or missing job configurations |
+
+### Scheduled test verification checklist
+
+Before any merge to `main`:
+
+- [ ] `.\tools\Test.ps1 -Profile Fast` passes with 0 failures
+- [ ] No new test is skipped without a documented reason
+- [ ] No test count decreases from the prior sprint baseline
+- [ ] `OpsConsole.UiContracts.Tests.ps1` — all FindName targets are present in XAML
+- [ ] XAML parses cleanly on Windows (`[System.Windows.Markup.XamlReader]::Parse`)
+
+### Hardening and maintenance checklist
+
+For any new handler that calls an API or modifies state:
+
+- [ ] Token expiry guard: `if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt)`
+- [ ] User permission guard: `if (-not (Test-UserAllowed))`
+- [ ] Token presence guard: `Get-ExplorerAccessToken` check
+- [ ] Correlation ID: `$correlationId = [guid]::NewGuid().ToString()`
+- [ ] Telemetry start/complete/fail events via `Write-UxEvent`
+- [ ] Background thread for long-running work: `Invoke-UIBackgroundTask`
+- [ ] Log entries include `[Correlation ID: ...]` suffix
+
+### Documentation accuracy review
+
+- Confirm `ROADMAP.md` sprint entries match actual code changes (not aspirational)
+- Confirm `docs/` guides reference functions that still exist and behave as described
+- Confirm Feature Maturity Table reflects current test coverage and stability
+
+### Remaining roadmap risks and future work
+
+| Item | Priority | Notes |
+|------|----------|-------|
+| Ops Dashboard tab elevated to Beta/Stable | Medium | Export buttons hardened (S7-001); refresh/filter handlers could benefit from telemetry |
+| DEF-007: Token persistence across restarts | Low | DPAPI-encrypted "Remember token" deferred since Sprint 1 |
+| Forensic Timeline hardening | Medium | Experimental tab; correlation IDs + telemetry not yet added |
+| Operational Events hardening | Medium | Background thread + telemetry pattern not yet applied |
+| Live Subscriptions hardening | Low | Experimental; DEF-008 pagination safety deferred since Sprint 3 |
+| Integration test coverage | Medium | `Integration.LiveApi.Smoke.Tests.ps1` requires live credentials; CI gate only runs Fast profile |
 
 ---
 
