@@ -1,6 +1,6 @@
 # Genesys Cloud Ops Console — Rescue Roadmap
 
-*Last updated: 2026-03-13. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete. Sprint 6 complete. Sprint 7 complete.*
+*Last updated: 2026-03-13. Sprint 1 complete. Sprint 2 complete. Sprint 3 complete. Sprint 4 complete. Sprint 5 complete. Sprint 6 complete. Sprint 7 complete. Sprint 8 complete.*
 
 ---
 
@@ -114,6 +114,7 @@ These must be fixed before any developer can run the test suite reliably.
 | Live Subscriptions | Experimental | Internal workflow; labelled |
 | Ops Dashboard | Experimental | Needs scope reduction; labelled |
 | Generic API Explorer | Utility | Secondary support surface |
+| Operational Events | Stable | Hardened (S8: token expiry guard, correlation IDs, telemetry) |
 | Templates/Favorites | Utility | Keep minimal |
 | AI/Copilot | Deferred | Not core yet |
 
@@ -265,9 +266,27 @@ These must be fixed before any developer can run the test suite reliably.
       telemetry file writes with properties (3), correlation ID GUID format (2).
       Full suite: 187 pass, 1 skipped, 0 failed.
 
+### Sprint 8 (Complete) — Operational Events Handler Hardening
+
+- [x] S8-001: Token expiry guard (`$script:TokenExpiresAt`) added to `runOperationalEventsButton` handler —
+      consistent with pattern in Conversation Report, Queue Wait, Audit, Ingest, and Ops Dashboard export handlers.
+- [x] S8-002: Correlation ID (`[guid]::NewGuid()`) added to `runOperationalEventsButton` handler:
+      variable `$opEvtCorrId` captured before `Invoke-UIBackgroundTask`; surfaced in status text and log.
+- [x] S8-003: `Write-UxEvent` telemetry added to Operational Events handler:
+      `ops_events_query_start` (with eventDefinitionIds, correlationId),
+      `ops_events_query_complete` (with eventCount),
+      `ops_events_query_fail` (with errorCategory). Log entries include `[Correlation ID: ...]` suffix.
+- [x] S8-004: `Sprint8.Tests.ps1` — 16 new tests covering:
+      token expiry guard pattern (3), telemetry event names accept test (3),
+      telemetry file writes with properties (3), correlation ID GUID format (2),
+      UI.Run.ps1 source contract checks (5).
+      Full suite: 203 pass, 1 skipped, 0 failed.
+- [x] Feature Maturity Table updated: Operational Events elevated to `Stable`.
+- [x] Remaining roadmap risk updated: Operational Events hardening marked complete.
+
 ---
 
-## Operational Review Process
+
 
 This section defines recurring engineering-hygiene tasks to keep the repository in a consistently shippable state.
 
@@ -315,10 +334,10 @@ For any new handler that calls an API or modifies state:
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Ops Dashboard tab elevated to Beta/Stable | Medium | Export buttons hardened (S7-001); refresh/filter handlers could benefit from telemetry |
+| Ops Dashboard refresh/filter handlers telemetry | Low | Export buttons hardened (S7-001); refresh/filter interactions do not call the API, so telemetry value is low |
 | DEF-007: Token persistence across restarts | Low | DPAPI-encrypted "Remember token" deferred since Sprint 1 |
-| Forensic Timeline hardening | Medium | Experimental tab; correlation IDs + telemetry not yet added |
-| Operational Events hardening | Medium | Background thread + telemetry pattern not yet applied |
+| Forensic Timeline hardening | Medium | Experimental tab; `Investigate-SelectedTimelineEntry` and `Export-SelectedTimelineEntry` are display-only; no API calls — telemetry opportunity is low impact |
+| Operational Events hardening | DONE | Completed in Sprint 8: token expiry guard, correlation ID, telemetry (ops_events_query_start/complete/fail) |
 | Live Subscriptions hardening | Low | Experimental; DEF-008 pagination safety deferred since Sprint 3 |
 | Integration test coverage | Medium | `Integration.LiveApi.Smoke.Tests.ps1` requires live credentials; CI gate only runs Fast profile |
 

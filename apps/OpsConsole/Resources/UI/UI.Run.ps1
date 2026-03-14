@@ -3293,6 +3293,14 @@ if ($runOperationalEventsButton) {
                 return
             }
 
+            $opEvtCorrId = [guid]::NewGuid().ToString()
+            if ($script:TokenExpiresAt -and (Get-Date) -gt $script:TokenExpiresAt) {
+                $operationalEventsStatusText.Text = "Query blocked: session expired. [Correlation ID: $opEvtCorrId]"
+                Add-LogEntry "Operational events query blocked: session expired. [Correlation ID: $opEvtCorrId]"
+                Show-LoginWindow | Out-Null
+                return
+            }
+
             $interval = "{0}/{1}" -f ((Get-Date).AddMinutes(-30).ToUniversalTime().ToString("o")), ((Get-Date).ToUniversalTime().ToString("o"))
             $filters = @()
             foreach ($id in $ids) {
@@ -3305,13 +3313,18 @@ if ($runOperationalEventsButton) {
             $capturedModuleManifest = $script:OpsInsightsManifest
             $capturedBaseUrl        = $ApiBaseUrl
             $capturedToken          = $token
+            $capturedOpEvtCorrId    = $opEvtCorrId
 
             Invoke-UIBackgroundTask `
                 -OnStart {
-                    $operationalEventsStatusText.Text = "Querying operational events..."
+                    $operationalEventsStatusText.Text = "Querying operational events... [Correlation ID: $capturedOpEvtCorrId]"
                     $script:OperationalEvents.Clear()
                     $script:OperationalEventsRaw.Clear()
                     if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $false }
+                    Write-UxEvent -Name 'ops_events_query_start' -Properties @{
+                        eventDefinitionIds = ($capturedFilters | ForEach-Object { $_.value }) -join ','
+                        correlationId      = $capturedOpEvtCorrId
+                    }
                 } `
                 -WorkParams @{
                     Interval       = $capturedInterval
@@ -3345,14 +3358,25 @@ if ($runOperationalEventsButton) {
                         }) | Out-Null
                     }
                     foreach ($entity in @($result.Entities)) { $script:OperationalEventsRaw.Add($entity) | Out-Null }
-                    $operationalEventsStatusText.Text = "Operational events loaded ($($script:OperationalEvents.Count))."
+                    $evCount = $script:OperationalEvents.Count
+                    $operationalEventsStatusText.Text = "Operational events loaded ($evCount). [Correlation ID: $capturedOpEvtCorrId]"
+                    Add-LogEntry "Operational events loaded ($evCount). [Correlation ID: $capturedOpEvtCorrId]"
+                    Write-UxEvent -Name 'ops_events_query_complete' -Properties @{
+                        correlationId = $capturedOpEvtCorrId
+                        eventCount    = $evCount
+                    }
                     if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $true }
                 } `
                 -OnError {
                     param($err)
                     $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { [string]$err }
+                    $errCategory = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.GetType().Name } else { 'RuntimeException' }
                     $operationalEventsStatusText.Text = "Operational event query failed: $errMsg"
-                    Add-LogEntry "Operational event query failed: $errMsg"
+                    Add-LogEntry "Operational event query failed: $errMsg [Correlation ID: $capturedOpEvtCorrId]"
+                    Write-UxEvent -Name 'ops_events_query_fail' -Properties @{
+                        correlationId = $capturedOpEvtCorrId
+                        errorCategory = $errCategory
+                    }
                     if ($runOperationalEventsButton) { $runOperationalEventsButton.IsEnabled = $true }
                 }
         })
